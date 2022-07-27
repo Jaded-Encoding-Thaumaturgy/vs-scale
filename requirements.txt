@@ -1,0 +1,7 @@
+VapourSynth>=59
+vsutil>=0.8.0
+vsaa>=1.0.0
+vskernels>=1.1.0
+vsexprtools>=0.0.2
+vsrgtools>=0.1.9
+vsmask>=0.4.0
