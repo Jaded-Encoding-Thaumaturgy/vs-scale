@@ -7,14 +7,12 @@ from typing import Tuple
 import vapoursynth as vs
 from vsexprtools import expr_func
 from vsexprtools.util import aka_expr_available
-from vskernels import Catrom, get_kernel, get_matrix
+from vskernels import Catrom, Matrix, Transfer, VSFunction, get_kernel
 from vskernels.kernels.abstract import Scaler
-from vskernels.types import VSFunction
 from vsrgtools import box_blur, gauss_blur
 from vsutil import depth, fallback, get_depth, get_w
 
 from .gamma import gamma2linear, linear2gamma
-from .types import TransferCurve
 
 __all__ = [
     'SSIM', 'ssim_downsample'
@@ -26,7 +24,7 @@ core = vs.core
 @dataclass
 class SSIM(Scaler):
     smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5
-    curve: TransferCurve | bool = False
+    curve: Transfer | bool = False
     sigmoid: bool = False
     scaler: Scaler = Catrom()
 
@@ -38,7 +36,7 @@ def ssim_downsample(
     clip: vs.VideoNode, width: int | None = None, height: int = 720,
     smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
     scaler: Scaler | str = Catrom(),
-    curve: TransferCurve | bool = False, sigmoid: bool = False,
+    curve: Transfer | bool = False, sigmoid: bool = False,
     shift: Tuple[float, float] = (0, 0)
 ) -> vs.VideoNode:
     """
@@ -97,7 +95,7 @@ def ssim_downsample(
     width = fallback(width, get_w(height, aspect_ratio=clip.width / clip.height))
 
     if curve is True:
-        curve = TransferCurve.from_matrix(get_matrix(clip))
+        curve = Transfer.from_matrix(Matrix.from_video(clip))
 
     bits, clip = get_depth(clip), depth(clip, 32)
 

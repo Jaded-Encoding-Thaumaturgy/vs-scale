@@ -4,9 +4,8 @@ from typing import Tuple
 import vapoursynth as vs
 from vsexprtools import expr_func
 from vsexprtools.util import aka_expr_available
+from vskernels import MatrixCoefficients, Transfer
 from vsutil import get_depth
-
-from .types import MatrixCoefficients, TransferCurve
 
 __all__ = [
     'gamma2linear', 'linear2gamma'
@@ -32,7 +31,7 @@ def _sigmoid_x(sigmoid: bool, cont: float, thr: float) -> Tuple[str, str, str]:
     return header, x0, x1
 
 
-def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: TransferCurve) -> vs.VideoNode:
+def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer) -> vs.VideoNode:
     clamping = '0.0 1.0 clamp' if aka_expr_available else'0.0 max 1.0 min'
 
     linear = expr_func(clip, f'{header} {expr} {clamping}')
@@ -41,7 +40,7 @@ def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer
 
 
 def gamma2linear(
-    clip: vs.VideoNode, curve: TransferCurve, gcor: float = 1.0,
+    clip: vs.VideoNode, curve: Transfer, gcor: float = 1.0,
     sigmoid: bool = False, thr: float = 0.5, cont: float = 6.5,
     epsilon: float = 1e-6
 ) -> vs.VideoNode:
@@ -60,11 +59,11 @@ def gamma2linear(
     if sigmoid:
         expr = f'{thr} 1 {expr} {x1} {x0} - * {x0} + {epsilon} max / 1 - {epsilon} max log {cont} / -'
 
-    return _clamp_converted(clip, header, expr, TransferCurve.LINEAR)
+    return _clamp_converted(clip, header, expr, Transfer.LINEAR)
 
 
 def linear2gamma(
-    clip: vs.VideoNode, curve: TransferCurve, gcor: float = 1.0,
+    clip: vs.VideoNode, curve: Transfer, gcor: float = 1.0,
     sigmoid: bool = False, thr: float = 0.5, cont: float = 6.5
 ) -> vs.VideoNode:
     """Convert linear curve to gamma."""
