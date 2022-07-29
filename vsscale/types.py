@@ -192,7 +192,7 @@ class DescaleMode(DescaleModeMeta, IntEnum):
     def prop_key(self) -> str:
         if self in {self.PlaneAverage, self.PlaneAverageMin, self.PlaneAverageMax}:
             return 'PlaneStatsPAvg'
-        elif self in {self.KernelDiff, self.KernelDiffMin, self.KernelDiffMax}:
+        elif self in{self.KernelDiff, self.KernelDiffMin, self.KernelDiffMax}:
             return 'PlaneStatsKDiff'
 
         raise RuntimeError

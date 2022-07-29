@@ -6,7 +6,7 @@ from math import log2
 from typing import Callable, Iterable, Literal, Sequence, Type, overload
 
 import vapoursynth as vs
-from vsaa import Znedi3
+from vsaa import Nnedi3
 from vsexprtools.util import normalise_seq
 from vskernels import Catrom, Kernel, Spline144, get_kernel, get_prop
 from vskernels.kernels.abstract import Scaler
@@ -140,7 +140,7 @@ def descale(  # type: ignore
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None,
     height: int | Iterable[int] = 720,
-    upscaler: Scaler | None = Znedi3(),
+    upscaler: Scaler | bool | None = Nnedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
     shift: tuple[float, float] = (0, 0), mask: CreditMaskT | bool = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[False] = False
@@ -153,7 +153,7 @@ def descale(
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None,
     height: int | Iterable[int] = 720,
-    upscaler: Scaler | None = Znedi3(),
+    upscaler: Scaler | Literal[True] | None = Nnedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
     shift: tuple[float, float] = (0, 0), mask: CreditMaskT | Literal[True] = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[True] = True
@@ -165,7 +165,7 @@ def descale(
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None,
     height: int | Iterable[int] = 720,
-    upscaler: Scaler | None = Znedi3(),
+    upscaler: Scaler | bool | None = Nnedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
     shift: tuple[float, float] = (0, 0), mask: CreditMaskT | bool = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: bool = False
@@ -230,12 +230,7 @@ def descale(
     else:
         descaled = descale_attempts[0].descaled
 
-    if upscaler is None:
-        upscaled = descaled
-    else:
-        upscaled = scale_var_clip(descaled, clip_y.width, clip_y.height, scaler=upscaler)
-
-    if mask:
+    if upscaler is False or mask:
         if len(kernel_combinations) == 1:
             rescaled = descale_attempts[0].rescaled
         else:
@@ -243,6 +238,18 @@ def descale(
                 lambda f, n: descale_attempts[f.props.descale_attempt_idx].rescaled, descaled
             )
 
+    if upscaler is True:
+        upscaler = Nnedi3()
+
+    if upscaler is False:
+        return rescaled
+
+    if upscaler is None:
+        upscaled = descaled
+    else:
+        upscaled = scale_var_clip(descaled, clip_y.width, clip_y.height, scaler=upscaler)
+
+    if mask:
         if mask is True:
             mask = descale_detail_mask
 
