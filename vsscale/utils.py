@@ -1,5 +1,9 @@
 import vapoursynth as vs
 
+__all__ = [
+    'merge_clip_props'
+]
+
 
 def merge_clip_props(*clips: vs.VideoNode, main_idx: int = 0) -> vs.VideoNode:
     if len(clips) == 1:
