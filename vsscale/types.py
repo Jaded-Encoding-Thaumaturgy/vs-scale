@@ -1,17 +1,25 @@
 from __future__ import annotations
+from dataclasses import dataclass, field
 
-from typing import Any, Callable, NamedTuple, Protocol, Tuple, Union
+from enum import IntEnum
+from typing import Any, Callable, Iterable, NamedTuple, Protocol, Tuple, TypeVar, Union, overload
 
 import vapoursynth as vs
 from vsexprtools import expr_func
+from vsexprtools.types import SupportsRichComparison, SupportsRichComparisonT
 from vskernels import Catrom, Kernel, VideoProp
 from vskernels.kernels.abstract import Scaler
 from vsmask.edge import EdgeDetect
 
 __all__ = [
     'GenericScaler',
-    'CreditMaskT', 'Resolution', 'DescaleAttempt'
+    'CreditMaskT', 'Resolution', 'DescaleAttempt',
+    '_ComparatorFunc', 'DescaleMode'
 ]
+
+_T = TypeVar('_T')
+_T1 = TypeVar('_T1')
+_T2 = TypeVar('_T2')
 
 
 CreditMaskT = Union[vs.VideoNode, Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode], EdgeDetect]
@@ -104,3 +112,53 @@ class DescaleAttempt(NamedTuple):
         return DescaleAttempt(
             resolution, descaled, rescaled, diff, cls.get_hash(width, height, kernel)
         )
+
+
+class _ComparatorFunc(Protocol):
+    @overload
+    def __call__(
+        self, __arg1: SupportsRichComparisonT, __arg2: SupportsRichComparisonT,
+        *_args: SupportsRichComparisonT, key: None = ...
+    ) -> SupportsRichComparisonT:
+        ...
+
+    @overload
+    def __call__(self, __arg1: _T, __arg2: _T, *_args: _T, key: Callable[[_T], SupportsRichComparison]) -> _T:
+        ...
+
+    @overload
+    def __call__(self, __iterable: Iterable[SupportsRichComparisonT], *, key: None = ...) -> SupportsRichComparisonT:
+        ...
+
+    @overload
+    def __call__(self, __iterable: Iterable[_T], *, key: Callable[[_T], SupportsRichComparison]) -> _T:
+        ...
+
+    @overload
+    def __call__(
+        self, __iterable: Iterable[SupportsRichComparisonT], *, key: None = ..., default: _T
+    ) -> SupportsRichComparisonT | _T:
+        ...
+
+    @overload
+    def __call__(
+        self, __iterable: Iterable[_T1], *, key: Callable[[_T1], SupportsRichComparison], default: _T2
+    ) -> _T1 | _T2:
+        ...
+
+
+@dataclass
+class DescaleModeMeta:
+    thr: float = field(default=0.0)
+    op: _ComparatorFunc = field(default_factory=lambda: max)
+
+
+class DescaleMode(DescaleModeMeta, IntEnum):
+    PlaneAverage = 0
+    PlaneDiff = 1
+
+    def __call__(self, thr: float, op: _ComparatorFunc = max) -> DescaleMode:
+        self.thr = thr
+        self.op = op
+
+        return self

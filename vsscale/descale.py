@@ -14,57 +14,70 @@ from vsutil import depth, get_depth, join, split
 
 from .mask import descale_detail_mask
 from .scale import scale_var_clip
-from .types import CreditMaskT, DescaleAttempt
+from .types import CreditMaskT, DescaleAttempt, DescaleMode
 
 core = vs.core
 
 
 __all__ = [
-    'get_select_descale',
-    'descale',
+    'get_select_descale', 'descale'
 ]
 
 
 def get_select_descale(
-    clip: vs.VideoNode, descale_attempts: list[DescaleAttempt], threshold: float = 0.0
+    clip: vs.VideoNode, descale_attempts: list[DescaleAttempt], mode: DescaleMode
 ) -> tuple[Callable[[list[vs.VideoFrame], int], vs.VideoNode], list[vs.VideoNode]]:
     clips_by_reskern = {
         attempt.da_hash: attempt
         for attempt in descale_attempts
     }
 
+    curr_clip = clip
     attempts_by_idx = list(clips_by_reskern.values())
+    threshold, operator = mode.thr, mode.op
 
-    diff_clips = [attempt.diff for attempt in attempts_by_idx]
+    if mode == DescaleMode.PlaneAverage:
+        diff_clips = [attempt.diff for attempt in attempts_by_idx]
 
-    n_clips = len(diff_clips)
+        n_clips = len(diff_clips)
 
-    def _get_descale_score(plane_averages: list[float], i: int) -> float:
-        height_log = log2(clip.height - attempts_by_idx[i].resolution.height)
-        pstats_avg = round(1 / max(plane_averages[i], 1e-12))
+        def _get_descale_score(plane_averages: list[float], i: int) -> float:
+            height_log = log2(curr_clip.height - attempts_by_idx[i].resolution.height)
+            pstats_avg = round(1 / max(plane_averages[i], 1e-12))
 
-        return height_log * pstats_avg ** 0.2  # type: ignore
+            return height_log * pstats_avg ** 0.2  # type: ignore
 
-    def _parse_attemps(f: list[vs.VideoFrame]) -> tuple[vs.VideoNode, list[float], int]:
-        plane_averages = [get_prop(frame, 'PlaneStatsAverage', float) for frame in f]
+        def _parse_attemps(f: list[vs.VideoFrame]) -> tuple[vs.VideoNode, list[float], int]:
+            plane_averages = [get_prop(frame, 'PlaneStatsAverage', float) for frame in f]
 
-        best_res = max(range(n_clips), key=partial(_get_descale_score, plane_averages))
+            best_res = operator(range(n_clips), key=partial(_get_descale_score, plane_averages))
 
-        best_attempt = attempts_by_idx[best_res]
+            print(
+                best_res,
+                operator,
+                min(range(n_clips), key=partial(_get_descale_score, plane_averages)),
+                max(range(n_clips), key=partial(_get_descale_score, plane_averages))
+            )
 
-        return best_attempt.descaled, plane_averages, best_res
+            best_attempt = attempts_by_idx[best_res]
 
-    if threshold == 0:
-        def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
-            return _parse_attemps(f)[0]
+            return best_attempt.descaled, plane_averages, best_res
+
+        if threshold == 0:
+            def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
+                return _parse_attemps(f)[0]
+        else:
+            def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
+                best_attempt, plane_averages, best_res = _parse_attemps(f)
+
+                if plane_averages[best_res] > threshold:
+                    return curr_clip
+
+                return best_attempt
+    elif mode == DescaleMode.PlaneDiff:
+        raise NotImplementedError
     else:
-        def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
-            best_attempt, plane_averages, best_res = _parse_attemps(f)
-
-            if plane_averages[best_res] > threshold:
-                return clip
-
-            return best_attempt
+        raise ValueError('get_select_descale: incorrect descale mode specified!')
 
     return _select_descale, diff_clips
 
@@ -76,9 +89,8 @@ def descale(  # type: ignore
     height: int | Iterable[int] = 720,
     upscaler: Scaler | None = Znedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    thr: float = 0.0, shift: tuple[float, float] = (0, 0),
-    mask: CreditMaskT | bool = descale_detail_mask,
-    show_mask: Literal[False] = False
+    shift: tuple[float, float] = (0, 0), mask: CreditMaskT | bool = descale_detail_mask,
+    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[False] = False
 ) -> vs.VideoNode:
     ...
 
@@ -90,9 +102,8 @@ def descale(
     height: int | Iterable[int] = 720,
     upscaler: Scaler | None = Znedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    thr: float = 0.0, shift: tuple[float, float] = (0, 0),
-    mask: CreditMaskT | Literal[True] = descale_detail_mask,
-    show_mask: Literal[True] = True
+    shift: tuple[float, float] = (0, 0), mask: CreditMaskT | Literal[True] = descale_detail_mask,
+    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[True] = True
 ) -> tuple[vs.VideoNode, vs.VideoNode]:
     ...
 
@@ -103,9 +114,8 @@ def descale(
     height: int | Iterable[int] = 720,
     upscaler: Scaler | None = Znedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    thr: float = 0.0, shift: tuple[float, float] = (0, 0),
-    mask: CreditMaskT | bool = descale_detail_mask,
-    show_mask: bool = False
+    shift: tuple[float, float] = (0, 0), mask: CreditMaskT | bool = descale_detail_mask,
+    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: bool = False
 ) -> vs.VideoNode | tuple[vs.VideoNode, vs.VideoNode]:
     assert clip.format
 
@@ -161,7 +171,7 @@ def descale(
             clip_y.std.BlankClip(length=1, width=clip_y.width + 1, keep=True)
         ], mismatch=True)
 
-        select_partial, prop_clips = get_select_descale(clip_y, descale_attempts, thr)
+        select_partial, prop_clips = get_select_descale(clip_y, descale_attempts, mode)
 
         descaled = var_res_clip.std.FrameEval(select_partial, prop_clips)
     else:
