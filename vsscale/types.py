@@ -190,9 +190,9 @@ class DescaleMode(DescaleModeMeta, IntEnum):
 
     @property
     def prop_key(self) -> str:
-        if self in {self.PlaneAverage, self.PlaneAverageMin, self.PlaneAverageMax}:
+        if self.is_average:
             return 'PlaneStatsPAvg'
-        elif self in{self.KernelDiff, self.KernelDiffMin, self.KernelDiffMax}:
+        elif self.is_kernel_diff:
             return 'PlaneStatsKDiff'
 
         raise RuntimeError
@@ -216,6 +216,14 @@ class DescaleMode(DescaleModeMeta, IntEnum):
             return max
 
         raise RuntimeError
+
+    @property
+    def is_average(self) -> bool:
+        return self in {self.PlaneAverage, self.PlaneAverageMin, self.PlaneAverageMax}
+
+    @property
+    def is_kernel_diff(self) -> bool:
+        return self in {self.KernelDiff, self.KernelDiffMin, self.KernelDiffMax}
 
     def prop_value(self, kind: PlaneStatsKind) -> str:
         return f'{self.prop_key}{kind.value}'

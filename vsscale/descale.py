@@ -61,7 +61,7 @@ def get_select_descale(
 
         return best_attempt.descaled, diff_vals, best_res
 
-    if mode == DescaleMode.PlaneAverage:
+    if mode.is_average:
         clips_indices = list(range(len(diff_clips)))
 
         if threshold <= 0.0:
@@ -75,7 +75,7 @@ def get_select_descale(
                     return curr_clip
 
                 return best_attempt
-    elif mode == DescaleMode.KernelDiff:
+    elif mode.is_kernel_diff:
         group_by_kernel = {
             key: list(grouped) for key, grouped in groupby(
                 enumerate(attempts_by_idx), lambda x: x[1].kernel.__class__.__name__
