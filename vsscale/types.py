@@ -80,6 +80,13 @@ class DescaleAttempt(NamedTuple):
     """The subtractive difference between the original and descaled frame."""
     diff: vs.VideoNode
 
+    """Hash to identify the descale attempt"""
+    da_hash: str
+
+    @classmethod
+    def get_hash(cls, width: int, height: int, kernel: Kernel) -> str:
+        return f'{width}_{height}_{kernel.__class__.__name__}'
+
     @classmethod
     def from_args(
         cls, clip: vs.VideoNode, width: int, height: int, shift: Tuple[float, float] = (0, 0),
@@ -94,4 +101,6 @@ class DescaleAttempt(NamedTuple):
 
         resolution = Resolution(width, height)
 
-        return DescaleAttempt(resolution, descaled, rescaled, diff)
+        return DescaleAttempt(
+            resolution, descaled, rescaled, diff, cls.get_hash(width, height, kernel)
+        )
