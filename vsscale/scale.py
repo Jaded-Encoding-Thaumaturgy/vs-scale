@@ -2,9 +2,10 @@
 import sys
 from dataclasses import dataclass
 from functools import partial
-from typing import Tuple
+from typing import Callable, Tuple
 
 import vapoursynth as vs
+from vsaa import Nnedi3
 from vsexprtools import expr_func
 from vsexprtools.util import aka_expr_available
 from vskernels import Catrom, Matrix, Transfer, VSFunction, get_kernel
@@ -13,9 +14,10 @@ from vsrgtools import box_blur, gauss_blur
 from vsutil import depth, fallback, get_depth, get_w
 
 from .gamma import gamma2linear, linear2gamma
+from .types import Resolution
 
 __all__ = [
-    'SSIM', 'ssim_downsample'
+    'SSIM', 'ssim_downsample', 'scale_var_clip'
 ]
 
 core = vs.core
@@ -123,3 +125,65 @@ def ssim_downsample(
         d = linear2gamma(d, curve, sigmoid=sigmoid)
 
     return depth(d, bits)
+
+
+def scale_var_clip(
+    clip: vs.VideoNode,
+    width: int | Callable[[Resolution], int] | None, height: int | Callable[[Resolution], int],
+    shift: Tuple[float, float] | Callable[[Resolution], Tuple[float, float]] = (0, 0),
+    scaler: Scaler | Callable[[Resolution], Scaler] = Nnedi3(), debug: bool = False
+) -> vs.VideoNode:
+    if not debug:
+        try:
+            return scaler.scale(clip, width, height, shift)  # type: ignore
+        except BaseException:
+            pass
+
+    _cached_clips = dict[str, vs.VideoNode]()
+
+    no_accepts_var = list[Scaler]()
+
+    def _eval_scale(f: vs.VideoFrame, n: int) -> vs.VideoNode:
+        key = f'{f.width}_{f.height}'
+
+        if key not in _cached_clips:
+            res = Resolution(f.width, f.height)
+
+            norm_scaler = scaler(res) if callable(scaler) else scaler
+            norm_shift = shift(res) if callable(shift) else shift
+            norm_height = height(res) if callable(height) else height
+            if width is None:
+                norm_width = get_w(norm_height, res.width / res.height)
+            else:
+                norm_width = width(res) if callable(width) else width
+
+            part_scaler = partial(
+                norm_scaler.scale, width=norm_width, height=norm_height, shift=norm_shift
+            )
+
+            scaled = clip
+            if (scaled.width, scaled.height) != (norm_width, norm_height):
+                if norm_scaler not in no_accepts_var:
+                    try:
+                        scaled = part_scaler(clip)
+                    except BaseException:
+                        no_accepts_var.append(norm_scaler)
+
+                if norm_scaler in no_accepts_var:
+                    const_clip = clip.resize.Point(res.width, res.height)
+
+                    scaled = part_scaler(const_clip)
+
+            if debug:
+                scaled = scaled.std.SetFrameProps(var_width=res.width, var_height=res.height)
+
+            _cached_clips[key] = scaled
+
+        return _cached_clips[key]
+
+    if callable(width) or callable(height):
+        out_clip = clip
+    else:
+        out_clip = clip.std.BlankClip(width, height)
+
+    return out_clip.std.FrameEval(_eval_scale, clip, clip)
