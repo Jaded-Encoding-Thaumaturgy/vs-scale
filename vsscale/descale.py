@@ -202,6 +202,6 @@ def descale(
         out = join([upscaled, *chroma], clip.format.color_family)
 
     if mask and show_mask:
-        return out, mask
+        return out, mask  # type: ignore
 
     return out
