@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import partial
 from math import log2
-from typing import Callable, Iterable, Sequence, Type
+from typing import Callable, Iterable, Literal, Sequence, Type, overload
 
 import vapoursynth as vs
 from vsaa import Znedi3
@@ -69,6 +69,34 @@ def get_select_descale(
     return _select_descale, diff_clips
 
 
+@overload
+def descale(  # type: ignore
+    clip: vs.VideoNode,
+    width: int | Iterable[int] | None = None,
+    height: int | Iterable[int] = 720,
+    upscaler: Scaler | None = Znedi3(),
+    kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
+    thr: float = 0.0, shift: tuple[float, float] = (0, 0),
+    mask: CreditMaskT | bool = descale_detail_mask,
+    show_mask: Literal[False] = False
+) -> vs.VideoNode:
+    ...
+
+
+@overload
+def descale(
+    clip: vs.VideoNode,
+    width: int | Iterable[int] | None = None,
+    height: int | Iterable[int] = 720,
+    upscaler: Scaler | None = Znedi3(),
+    kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
+    thr: float = 0.0, shift: tuple[float, float] = (0, 0),
+    mask: CreditMaskT | Literal[True] = descale_detail_mask,
+    show_mask: Literal[True] = True
+) -> tuple[vs.VideoNode, vs.VideoNode]:
+    ...
+
+
 def descale(
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None,
@@ -78,7 +106,7 @@ def descale(
     thr: float = 0.0, shift: tuple[float, float] = (0, 0),
     mask: CreditMaskT | bool = descale_detail_mask,
     show_mask: bool = False
-) -> vs.VideoNode:
+) -> vs.VideoNode | tuple[vs.VideoNode, vs.VideoNode]:
     assert clip.format
 
     if isinstance(height, int):
@@ -164,14 +192,16 @@ def descale(
             mask = Spline144().scale(mask, upscaled.width, upscaled.height)
             clip_y = Spline144().scale(clip_y, upscaled.width, upscaled.height)
 
-        if show_mask:
-            return mask
-
         upscaled = upscaled.std.MaskedMerge(clip_y, mask)
 
     upscaled = depth(upscaled, get_depth(clip))
 
     if not chroma:
-        return upscaled
+        out = upscaled
+    else:
+        out = join([upscaled, *chroma], clip.format.color_family)
 
-    return join([upscaled, *chroma], clip.format.color_family)
+    if mask and show_mask:
+        return out, mask
+
+    return out
