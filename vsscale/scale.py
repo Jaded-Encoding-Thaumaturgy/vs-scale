@@ -6,8 +6,7 @@ from typing import Callable, Tuple
 
 import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import expr_func
-from vsexprtools.util import aka_expr_available
+from vsexprtools import expr_func, aka_expr_available
 from vskernels import Catrom, Matrix, Transfer, VSFunction, get_kernel
 from vskernels.kernels.abstract import Scaler
 from vsrgtools import box_blur, gauss_blur

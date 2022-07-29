@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
-from typing import Any, Callable, Iterable, NamedTuple, Protocol, Tuple, TypeVar, Union, overload
+from typing import Any, Callable, NamedTuple, Protocol, Tuple, Union
 
 import vapoursynth as vs
-from vsexprtools import expr_func
-from vsexprtools.types import SupportsRichComparison, SupportsRichComparisonT
+from vsexprtools import expr_func, ComparatorFunc
 from vskernels import Catrom, Kernel, VideoProp
 from vskernels.kernels.abstract import Scaler
 from vsmask.edge import EdgeDetect
@@ -16,13 +15,8 @@ from .utils import merge_clip_props
 __all__ = [
     'GenericScaler',
     'CreditMaskT', 'Resolution', 'DescaleAttempt',
-    '_ComparatorFunc',
     'DescaleMode', 'PlaneStatsKind'
 ]
-
-_T = TypeVar('_T')
-_T1 = TypeVar('_T1')
-_T2 = TypeVar('_T2')
 
 
 CreditMaskT = Union[vs.VideoNode, Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode], EdgeDetect]
@@ -129,39 +123,6 @@ class DescaleAttempt(NamedTuple):
         )
 
 
-class _ComparatorFunc(Protocol):
-    @overload
-    def __call__(
-        self, __arg1: SupportsRichComparisonT, __arg2: SupportsRichComparisonT,
-        *_args: SupportsRichComparisonT, key: None = ...
-    ) -> SupportsRichComparisonT:
-        ...
-
-    @overload
-    def __call__(self, __arg1: _T, __arg2: _T, *_args: _T, key: Callable[[_T], SupportsRichComparison]) -> _T:
-        ...
-
-    @overload
-    def __call__(self, __iterable: Iterable[SupportsRichComparisonT], *, key: None = ...) -> SupportsRichComparisonT:
-        ...
-
-    @overload
-    def __call__(self, __iterable: Iterable[_T], *, key: Callable[[_T], SupportsRichComparison]) -> _T:
-        ...
-
-    @overload
-    def __call__(
-        self, __iterable: Iterable[SupportsRichComparisonT], *, key: None = ..., default: _T
-    ) -> SupportsRichComparisonT | _T:
-        ...
-
-    @overload
-    def __call__(
-        self, __iterable: Iterable[_T1], *, key: Callable[[_T1], SupportsRichComparison], default: _T2
-    ) -> _T1 | _T2:
-        ...
-
-
 class PlaneStatsKind(str, Enum):
     AVG = 'Average'
     MIN = 'Min'
@@ -172,7 +133,7 @@ class PlaneStatsKind(str, Enum):
 @dataclass
 class DescaleModeMeta:
     thr: float = field(default=5e-8)
-    op: _ComparatorFunc = field(default_factory=lambda: max)
+    op: ComparatorFunc = field(default_factory=lambda: max)
 
 
 class DescaleMode(DescaleModeMeta, IntEnum):
@@ -198,7 +159,7 @@ class DescaleMode(DescaleModeMeta, IntEnum):
         raise RuntimeError
 
     @property
-    def res_op(self) -> _ComparatorFunc:
+    def res_op(self) -> ComparatorFunc:
         if self in {self.PlaneAverage, self.KernelDiff, self.PlaneAverageMax, self.KernelDiffMax}:
             return max
 
@@ -208,7 +169,7 @@ class DescaleMode(DescaleModeMeta, IntEnum):
         raise RuntimeError
 
     @property
-    def diff_op(self) -> _ComparatorFunc:
+    def diff_op(self) -> ComparatorFunc:
         if self in {self.PlaneAverage, self.KernelDiff, self.PlaneAverageMin, self.KernelDiffMin}:
             return min
 

@@ -7,7 +7,7 @@ from typing import Callable, Iterable, Literal, Sequence, Type, overload
 
 import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools.util import normalise_seq
+from vsexprtools import normalise_seq
 from vskernels import Catrom, Kernel, Spline144, get_kernel, get_prop
 from vskernels.kernels.abstract import Scaler
 from vsmask.edge import EdgeDetect

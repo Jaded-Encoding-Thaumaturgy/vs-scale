@@ -1,6 +1,5 @@
 import vapoursynth as vs
-from vsexprtools import ExprOp, combine
-from vsexprtools.util import expect_bits
+from vsexprtools import ExprOp, combine, expect_bits
 from vsmask.edge import PrewittTCanny
 from vsrgtools import removegrain
 from vsutil import depth, get_y, iterate

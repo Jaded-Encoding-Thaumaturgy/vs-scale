@@ -2,8 +2,7 @@
 from typing import Tuple
 
 import vapoursynth as vs
-from vsexprtools import expr_func
-from vsexprtools.util import aka_expr_available
+from vsexprtools import expr_func, aka_expr_available
 from vskernels import MatrixCoefficients, Transfer
 from vsutil import get_depth
 
