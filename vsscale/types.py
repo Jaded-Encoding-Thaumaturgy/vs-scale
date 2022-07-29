@@ -14,7 +14,8 @@ from vsmask.edge import EdgeDetect
 __all__ = [
     'GenericScaler',
     'CreditMaskT', 'Resolution', 'DescaleAttempt',
-    '_ComparatorFunc', 'DescaleMode'
+    '_ComparatorFunc',
+    'DescaleMode', 'PlaneStatsKind'
 ]
 
 _T = TypeVar('_T')
@@ -145,6 +146,13 @@ class _ComparatorFunc(Protocol):
         self, __iterable: Iterable[_T1], *, key: Callable[[_T1], SupportsRichComparison], default: _T2
     ) -> _T1 | _T2:
         ...
+
+
+class PlaneStatsKind(str, Enum):
+    AVG = 'Average'
+    MIN = 'Min'
+    MAX = 'Max'
+    DIFF = 'Diff'
 
 
 @dataclass
