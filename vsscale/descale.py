@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import partial
 from math import log2
-from typing import Callable, Iterable, List, Type
+from typing import Callable, Iterable, List, Sequence, Type
 
 import vapoursynth as vs
 from vsaa import Znedi3
@@ -74,7 +74,7 @@ def descale(
     width: int | Iterable[int] | None = None,
     height: int | Iterable[int] = 720,
     upscaler: Scaler | None = Znedi3(),
-    kernels: Kernel | Type[Kernel] | str | list[Kernel | Type[Kernel] | str] = Catrom(),
+    kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
     thr: float = 0.0, shift: tuple[float, float] = (0, 0),
     mask: CreditMaskT | bool = descale_detail_mask,
     show_mask: bool = False
