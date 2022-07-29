@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from functools import partial
 from math import log2
-from typing import Callable, Iterable, List, Sequence, Type
+from typing import Callable, Iterable, Sequence, Type
 
 import vapoursynth as vs
 from vsaa import Znedi3
+from vsexprtools.util import normalise_seq
 from vskernels import Catrom, Kernel, Spline144, get_kernel, get_prop
 from vskernels.kernels.abstract import Scaler
 from vsmask.edge import EdgeDetect
@@ -27,41 +28,40 @@ __all__ = [
 def get_select_descale(
     clip: vs.VideoNode, descale_attempts: list[DescaleAttempt], threshold: float = 0.0
 ) -> tuple[Callable[[list[vs.VideoFrame], int], vs.VideoNode], list[vs.VideoNode]]:
-    clips_by_height = {
-        attempt.resolution.height: attempt
+    clips_by_reskern = {
+        attempt.da_hash: attempt
         for attempt in descale_attempts
     }
 
-    diff_clips = [
-        attempt.diff for attempt in clips_by_height.values()
-    ]
+    attempts_by_idx = list(clips_by_reskern.values())
+
+    diff_clips = [attempt.diff for attempt in attempts_by_idx]
+
     n_clips = len(diff_clips)
 
-    def _get_descale_score(mapped_props: list[tuple[int, float]], i: int) -> float:
-        height_log = log2(clip.height - mapped_props[i][0])
-        pstats_avg = round(1 / max(mapped_props[i][1], 1e-12))
+    def _get_descale_score(plane_averages: list[float], i: int) -> float:
+        height_log = log2(clip.height - attempts_by_idx[i].resolution.height)
+        pstats_avg = round(1 / max(plane_averages[i], 1e-12))
 
         return height_log * pstats_avg ** 0.2  # type: ignore
 
-    def _parse_attemps(f: list[vs.VideoFrame]) -> tuple[vs.VideoNode, list[tuple[int, float]], int]:
-        mapped_props = [
-            (get_prop(frame, "descale_height", int), get_prop(frame, "PlaneStatsAverage", float)) for frame in f
-        ]
+    def _parse_attemps(f: list[vs.VideoFrame]) -> tuple[vs.VideoNode, list[float], int]:
+        plane_averages = [get_prop(frame, 'PlaneStatsAverage', float) for frame in f]
 
-        best_res = max(range(n_clips), key=partial(_get_descale_score, mapped_props))
+        best_res = max(range(n_clips), key=partial(_get_descale_score, plane_averages))
 
-        best_attempt = clips_by_height[mapped_props[best_res][0]]
+        best_attempt = attempts_by_idx[best_res]
 
-        return best_attempt.descaled, mapped_props, best_res
+        return best_attempt.descaled, plane_averages, best_res
 
     if threshold == 0:
         def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
             return _parse_attemps(f)[0]
     else:
         def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
-            best_attempt, mapped_props, best_res = _parse_attemps(f)
+            best_attempt, plane_averages, best_res = _parse_attemps(f)
 
-            if mapped_props[best_res][1] > threshold:
+            if plane_averages[best_res] > threshold:
                 return clip
 
             return best_attempt
@@ -81,15 +81,6 @@ def descale(
 ) -> vs.VideoNode:
     assert clip.format
 
-    if not isinstance(kernels, List):
-        kernels = [kernels]
-
-    norm_kernels = [
-        get_kernel(kernel)() if isinstance(kernel, str) else (
-            kernel if isinstance(kernel, Kernel) else kernel()
-        ) for kernel in kernels
-    ]
-
     if isinstance(height, int):
         heights = [height]
     else:
@@ -102,33 +93,41 @@ def descale(
     else:
         widths = list(width)
 
+    if not isinstance(kernels, Sequence):
+        kernels = [kernels]
+
+    norm_resolutions = list(zip(widths, heights))
+    norm_kernels = [
+        get_kernel(kernel)() if isinstance(kernel, str) else (
+            kernel if isinstance(kernel, Kernel) else kernel()
+        ) for kernel in kernels
+    ]
+
     if len(widths) != len(heights):
         raise ValueError("descale: Number of heights and widths specified mismatch!")
 
     if not norm_kernels:
         raise ValueError("descale: You must specify at least one kernel!")
 
-    multi_descale = len(widths) > 1
-
     work_clip, *chroma = split(clip)
 
     clip_y = work_clip.resize.Point(format=vs.GRAYS)
 
-    n_kernels = len(norm_kernels)
+    max_kres_len = max(len(norm_kernels), len(norm_resolutions))
 
-    kernel_combinations = list(zip(norm_kernels, list(zip(widths, heights)) * n_kernels))
+    kernel_combinations = list[tuple[Kernel, tuple[int, int]]](zip(*(
+        normalise_seq(x, max_kres_len) for x in (norm_kernels, norm_resolutions)  # type: ignore
+    )))
 
     descale_attempts = [
         DescaleAttempt.from_args(
             clip_y, width, height, shift, kernel,
-            descale_attempt_idx=i,
-            descale_height=height,
-            descale_kernel=kernel.__class__.__name__
+            descale_attempt_idx=i, descale_height=height, descale_kernel=kernel.__class__.__name__
         )
         for i, (kernel, (width, height)) in enumerate(kernel_combinations)
     ]
 
-    if multi_descale:
+    if len(descale_attempts) > 1:
         var_res_clip = core.std.Splice([
             clip_y.std.BlankClip(length=len(clip_y) - 1, keep=True),
             clip_y.std.BlankClip(length=1, width=clip_y.width + 1, keep=True)
