@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
+from itertools import groupby
 from math import log2
 from typing import Callable, Iterable, Literal, Sequence, Type, overload
 
@@ -14,7 +15,7 @@ from vsutil import depth, get_depth, join, split
 
 from .mask import descale_detail_mask
 from .scale import scale_var_clip
-from .types import CreditMaskT, DescaleAttempt, DescaleMode
+from .types import CreditMaskT, DescaleAttempt, DescaleMode, PlaneStatsKind
 
 core = vs.core
 
@@ -33,49 +34,101 @@ def get_select_descale(
     }
 
     curr_clip = clip
+    main_kernel = descale_attempts[0].kernel.__class__.__name__
     attempts_by_idx = list(clips_by_reskern.values())
-    threshold, operator = mode.thr, mode.op
+
+    threshold = mode.thr
+    res_operator = mode.res_op
+    diff_operator = mode.diff_op
+
+    res_props_key = DescaleMode.PlaneAverage.prop_value(PlaneStatsKind.AVG)
+    diff_prop_key = DescaleMode.KernelDiff.prop_value(PlaneStatsKind.DIFF)
+
+    diff_clips = [attempt.diff for attempt in attempts_by_idx]
+
+    def _get_descale_score(diff_vals: list[float], i: int) -> float:
+        height_log = log2(curr_clip.height - attempts_by_idx[i].resolution.height)
+        pstats_avg = round(1 / max(diff_vals[i], 1e-12))
+
+        return height_log * pstats_avg ** 0.2  # type: ignore
+
+    def _parse_attemps(f: list[vs.VideoFrame], indices: list[int]) -> tuple[vs.VideoNode, list[float], int]:
+        diff_vals = [get_prop(frame, res_props_key, float) for frame in f]
+
+        best_res = res_operator(indices, key=partial(_get_descale_score, diff_vals))
+
+        best_attempt = attempts_by_idx[best_res]
+
+        return best_attempt.descaled, diff_vals, best_res
 
     if mode == DescaleMode.PlaneAverage:
-        diff_clips = [attempt.diff for attempt in attempts_by_idx]
+        clips_indices = list(range(len(diff_clips)))
 
-        n_clips = len(diff_clips)
-
-        def _get_descale_score(plane_averages: list[float], i: int) -> float:
-            height_log = log2(curr_clip.height - attempts_by_idx[i].resolution.height)
-            pstats_avg = round(1 / max(plane_averages[i], 1e-12))
-
-            return height_log * pstats_avg ** 0.2  # type: ignore
-
-        def _parse_attemps(f: list[vs.VideoFrame]) -> tuple[vs.VideoNode, list[float], int]:
-            plane_averages = [get_prop(frame, 'PlaneStatsAverage', float) for frame in f]
-
-            best_res = operator(range(n_clips), key=partial(_get_descale_score, plane_averages))
-
-            print(
-                best_res,
-                operator,
-                min(range(n_clips), key=partial(_get_descale_score, plane_averages)),
-                max(range(n_clips), key=partial(_get_descale_score, plane_averages))
-            )
-
-            best_attempt = attempts_by_idx[best_res]
-
-            return best_attempt.descaled, plane_averages, best_res
-
-        if threshold == 0:
+        if threshold <= 0.0:
             def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
-                return _parse_attemps(f)[0]
+                return _parse_attemps(f, clips_indices)[0]
         else:
             def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
-                best_attempt, plane_averages, best_res = _parse_attemps(f)
+                best_attempt, plane_averages, best_res = _parse_attemps(f, clips_indices)
 
                 if plane_averages[best_res] > threshold:
                     return curr_clip
 
                 return best_attempt
-    elif mode == DescaleMode.PlaneDiff:
-        raise NotImplementedError
+    elif mode == DescaleMode.KernelDiff:
+        group_by_kernel = {
+            key: list(grouped) for key, grouped in groupby(
+                enumerate(attempts_by_idx), lambda x: x[1].kernel.__class__.__name__
+            )
+        }
+
+        if len(group_by_kernel) < 2:
+            raise ValueError(
+                'get_select_descale: With KernelDiff mode you need to specify at least two kernels!\n'
+                '(First will be the main kernel, others will be compared to it)'
+            )
+
+        kernel_indices = {
+            name: [x[0] for x in attempts] for name, attempts in group_by_kernel.items()
+        }
+        other_kernels = {
+            key: val for key, val in kernel_indices.items() if key != main_kernel
+        }
+
+        main_kernel_indices = list(kernel_indices[main_kernel])
+        other_kernel_indices = list(other_kernels.values())
+        other_kernel_enum_indices = list(enumerate(other_kernels.values()))
+
+        main_clips_indices = list(range(len(main_kernel_indices)))
+        other_clips_indices = [
+            list(range(len(kernel_indices)))
+            for kernel_indices in other_kernel_indices
+        ]
+        comp_other_indices = list(range(len(other_clips_indices)))
+
+        def _select_descale(f: list[vs.VideoFrame], n: int) -> vs.VideoNode:
+            main_clip, _, main_best_val_idx = _parse_attemps(
+                [f[i] for i in main_kernel_indices], main_clips_indices
+            )
+
+            other_diffs_parsed = [
+                _parse_attemps([f[i] for i in indices], other_clips_indices[j])
+                for j, indices in other_kernel_enum_indices
+            ]
+
+            other_best_idx = diff_operator(
+                comp_other_indices, key=lambda i: other_diffs_parsed[i][1][other_diffs_parsed[i][2]]
+            )
+            other_clip, _, other_best_val_idx = other_diffs_parsed[other_best_idx]
+
+            main_value = get_prop(f[main_kernel_indices[main_best_val_idx]], diff_prop_key, float)
+            other_value = get_prop(f[other_kernel_indices[other_best_idx][other_best_val_idx]], diff_prop_key, float)
+
+            if other_value - threshold > main_value:
+                return main_clip
+
+            return other_clip
+
     else:
         raise ValueError('get_select_descale: incorrect descale mode specified!')
 
@@ -159,7 +212,7 @@ def descale(
 
     descale_attempts = [
         DescaleAttempt.from_args(
-            clip_y, width, height, shift, kernel,
+            clip_y, width, height, shift, kernel, mode,
             descale_attempt_idx=i, descale_height=height, descale_kernel=kernel.__class__.__name__
         )
         for i, (kernel, (width, height)) in enumerate(kernel_combinations)

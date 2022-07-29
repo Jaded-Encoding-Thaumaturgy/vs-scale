@@ -1,7 +1,7 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
 
-from enum import IntEnum
+from dataclasses import dataclass, field
+from enum import Enum, IntEnum
 from typing import Any, Callable, Iterable, NamedTuple, Protocol, Tuple, TypeVar, Union, overload
 
 import vapoursynth as vs
@@ -10,6 +10,8 @@ from vsexprtools.types import SupportsRichComparison, SupportsRichComparisonT
 from vskernels import Catrom, Kernel, VideoProp
 from vskernels.kernels.abstract import Scaler
 from vsmask.edge import EdgeDetect
+
+from .utils import merge_clip_props
 
 __all__ = [
     'GenericScaler',
@@ -89,6 +91,9 @@ class DescaleAttempt(NamedTuple):
     """The subtractive difference between the original and descaled frame."""
     diff: vs.VideoNode
 
+    """Kernel used"""
+    kernel: Kernel
+
     """Hash to identify the descale attempt"""
     da_hash: str
 
@@ -98,20 +103,29 @@ class DescaleAttempt(NamedTuple):
 
     @classmethod
     def from_args(
-        cls, clip: vs.VideoNode, width: int, height: int, shift: Tuple[float, float] = (0, 0),
-        kernel: Kernel = Catrom(), **kwargs: VideoProp
+        cls, clip: vs.VideoNode, width: int, height: int, shift: Tuple[float, float],
+        kernel: Kernel, mode: DescaleMode, **kwargs: VideoProp
     ) -> DescaleAttempt:
         descaled = kernel.descale(clip, width, height, shift)
         descaled = descaled.std.SetFrameProps(**kwargs)
 
         rescaled = kernel.scale(descaled, clip.width, clip.height)
 
-        diff = expr_func([rescaled, clip], 'x y - abs').std.PlaneStats()
+        diff = expr_func([rescaled, clip], 'x y - abs').std.PlaneStats(
+            None, prop=DescaleMode.PlaneAverage.prop_key
+        )
+
+        if mode in {DescaleMode.KernelDiff, DescaleMode.KernelDiffMin, DescaleMode.KernelDiffMax}:
+            diff_props = rescaled.std.PlaneStats(
+                clip, prop=DescaleMode.KernelDiff.prop_key
+            )
+
+            diff = merge_clip_props(diff, diff_props)
 
         resolution = Resolution(width, height)
 
         return DescaleAttempt(
-            resolution, descaled, rescaled, diff, cls.get_hash(width, height, kernel)
+            resolution, descaled, rescaled, diff, kernel, cls.get_hash(width, height, kernel)
         )
 
 
@@ -157,16 +171,54 @@ class PlaneStatsKind(str, Enum):
 
 @dataclass
 class DescaleModeMeta:
-    thr: float = field(default=0.0)
+    thr: float = field(default=5e-8)
     op: _ComparatorFunc = field(default_factory=lambda: max)
 
 
 class DescaleMode(DescaleModeMeta, IntEnum):
     PlaneAverage = 0
-    PlaneDiff = 1
+    PlaneAverageMax = 1
+    PlaneAverageMin = 2
+    KernelDiff = 3
+    KernelDiffMax = 4
+    KernelDiffMin = 5
 
-    def __call__(self, thr: float, op: _ComparatorFunc = max) -> DescaleMode:
+    def __call__(self, thr: float = 5e-8) -> DescaleMode:
         self.thr = thr
-        self.op = op
 
         return self
+
+    @property
+    def prop_key(self) -> str:
+        if self in {self.PlaneAverage, self.PlaneAverageMin, self.PlaneAverageMax}:
+            return 'PlaneStatsPAvg'
+        elif self in {self.KernelDiff, self.KernelDiffMin, self.KernelDiffMax}:
+            return 'PlaneStatsKDiff'
+
+        raise RuntimeError
+
+    @property
+    def res_op(self) -> _ComparatorFunc:
+        if self in {self.PlaneAverage, self.KernelDiff, self.PlaneAverageMax, self.KernelDiffMax}:
+            return max
+
+        if self in {self.PlaneAverageMin, self.KernelDiffMin}:
+            return min
+
+        raise RuntimeError
+
+    @property
+    def diff_op(self) -> _ComparatorFunc:
+        if self in {self.PlaneAverage, self.KernelDiff, self.PlaneAverageMin, self.KernelDiffMin}:
+            return min
+
+        if self in {self.KernelDiffMax, self.PlaneAverageMax}:
+            return max
+
+        raise RuntimeError
+
+    def prop_value(self, kind: PlaneStatsKind) -> str:
+        return f'{self.prop_key}{kind.value}'
+
+    def __hash__(self) -> int:
+        return hash(self._name_)
