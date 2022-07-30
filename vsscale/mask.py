@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import vapoursynth as vs
 from vsexprtools import ExprOp, combine, expect_bits
 from vsmask.edge import PrewittTCanny

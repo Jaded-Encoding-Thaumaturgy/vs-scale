@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from vskernels import Kernel, get_kernel
 
 __all__ = [

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import vapoursynth as vs
 
 __all__ = [
