@@ -41,7 +41,7 @@ def get_select_descale(
     res_operator = mode.res_op
     diff_operator = mode.diff_op
 
-    res_props_key = DescaleMode.PlaneAverage.prop_value(PlaneStatsKind.AVG)
+    res_props_key = DescaleMode.PlaneDiff.prop_value(PlaneStatsKind.AVG)
     diff_prop_key = DescaleMode.KernelDiff.prop_value(PlaneStatsKind.DIFF)
 
     diff_clips = [attempt.diff for attempt in attempts_by_idx]

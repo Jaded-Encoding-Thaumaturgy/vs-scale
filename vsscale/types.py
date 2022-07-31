@@ -107,7 +107,7 @@ class DescaleAttempt(NamedTuple):
         rescaled = kernel.scale(descaled, clip.width, clip.height)
 
         diff = expr_func([rescaled, clip], 'x y - abs').std.PlaneStats(
-            None, prop=DescaleMode.PlaneAverage.prop_key
+            None, prop=DescaleMode.PlaneDiff.prop_key
         )
 
         if mode in {DescaleMode.KernelDiff, DescaleMode.KernelDiffMin, DescaleMode.KernelDiffMax}:
@@ -156,9 +156,9 @@ class DescaleModeMeta:
 
 
 class DescaleMode(DescaleModeMeta, IntEnum):
-    PlaneAverage = 0
-    PlaneAverageMax = 1
-    PlaneAverageMin = 2
+    PlaneDiff = 0
+    PlaneDiffMax = 1
+    PlaneDiffMin = 2
     KernelDiff = 3
     KernelDiffMax = 4
     KernelDiffMin = 5
@@ -179,27 +179,27 @@ class DescaleMode(DescaleModeMeta, IntEnum):
 
     @property
     def res_op(self) -> ComparatorFunc:
-        if self in {self.PlaneAverage, self.KernelDiff, self.PlaneAverageMax, self.KernelDiffMax}:
+        if self in {self.PlaneDiff, self.KernelDiff, self.PlaneDiffMax, self.KernelDiffMax}:
             return max
 
-        if self in {self.PlaneAverageMin, self.KernelDiffMin}:
+        if self in {self.PlaneDiffMin, self.KernelDiffMin}:
             return min
 
         raise RuntimeError
 
     @property
     def diff_op(self) -> ComparatorFunc:
-        if self in {self.PlaneAverage, self.KernelDiff, self.PlaneAverageMin, self.KernelDiffMin}:
+        if self in {self.PlaneDiff, self.KernelDiff, self.PlaneDiffMin, self.KernelDiffMin}:
             return min
 
-        if self in {self.KernelDiffMax, self.PlaneAverageMax}:
+        if self in {self.KernelDiffMax, self.PlaneDiffMax}:
             return max
 
         raise RuntimeError
 
     @property
     def is_average(self) -> bool:
-        return self in {self.PlaneAverage, self.PlaneAverageMin, self.PlaneAverageMax}
+        return self in {self.PlaneDiff, self.PlaneDiffMin, self.PlaneDiffMax}
 
     @property
     def is_kernel_diff(self) -> bool:
