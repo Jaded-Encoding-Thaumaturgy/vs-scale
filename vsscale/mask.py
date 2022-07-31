@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import vapoursynth as vs
-from vsexprtools import ExprOp, combine, expect_bits
+from vsexprtools import ExprOp, combine, expect_bits, expr_func, shift_clip_multi
+from vskernels import Catrom
 from vsmask.edge import PrewittTCanny
-from vsrgtools import removegrain
-from vsutil import depth, get_y, iterate
+from vsmask.util import XxpandMode, expand
+from vsrgtools import box_blur, gauss_blur, removegrain
+from vsutil import depth, get_depth, get_neutral_value, get_y, iterate, scale_value, split
+
+__all__ = [
+    'descale_detail_mask', 'descale_error_mask',
+    'simple_detail_mask', 'multi_detail_mask',
+    'credit_mask'
+]
 
 core = vs.core
 
@@ -18,6 +26,75 @@ def descale_detail_mask(clip: vs.VideoNode, rescaled: vs.VideoNode, threshold: f
     mask = iterate(mask, core.std.Inflate, 2)
 
     return mask.std.Limiter()
+
+
+def descale_error_mask(
+    clip: vs.VideoNode, rescaled: vs.VideoNode,
+    thr: float | list[float] = 0.38,
+    expands: int | tuple[int, int, int] = (2, 2, 3),
+    blur: int | float = 3, bwbias: int = 1, tr: int = 1
+) -> vs.VideoNode:
+    assert clip.format and rescaled.format
+
+    y, *chroma = split(clip)
+
+    bit_depth = get_depth(clip)
+    neutral = get_neutral_value(clip)
+
+    error = expr_func([y, rescaled], 'x y - abs')
+
+    if bwbias > 1 and chroma:
+        chroma_abs = expr_func(chroma, f'x {neutral} - abs y {neutral} - abs max')
+        chroma_abs = Catrom().scale(chroma_abs, y.width, y.height)
+
+        tv_low, tv_high = scale_value(16, 8, bit_depth), scale_value(235, 8, bit_depth)
+        bias = expr_func([y, chroma_abs], f'x {tv_high} >= x {tv_low} <= or y 0 = and {bwbias} 1 ?')
+
+        bias = expand(bias, 2)
+
+        error = expr_func([error, bias], 'x y *')
+
+    if isinstance(expands, int):
+        exp1 = exp2 = exp3 = expands
+    else:
+        exp1, exp2, exp3 = expands
+
+    assert exp1
+
+    error = expand(error, exp1, mode=XxpandMode.RECTANGLE)
+
+    if exp2:
+        error = expand(error, exp2, mode=XxpandMode.ELLIPSE)
+
+    scaled_thrs = [
+        scale_value(val / 10, 32, bit_depth)
+        for val in ([thr] if isinstance(thr, float) else thr)
+    ]
+
+    error = error.std.Binarize(scaled_thrs[0])
+
+    for scaled_thr in scaled_thrs[1:]:
+        bin2 = error.std.Binarize(scaled_thr)
+        error = bin2.misc.Hysteresis(error)
+
+    if exp3:
+        error = expand(error, exp2, mode=XxpandMode.ELLIPSE)
+
+    if tr > 1:
+        avg = core.misc.AverageFrames(error, [1] * ((tr * 2) + 1)).std.Binarize(neutral)
+
+        _error = combine([error, avg], ExprOp.MIN)
+        shifted = shift_clip_multi(_error, (-tr, tr))
+        _error = combine(shifted, ExprOp.MAX)
+
+        error = combine([error, _error], ExprOp.MIN)
+
+    if isinstance(blur, int):
+        error = box_blur(error, blur)
+    else:
+        error = gauss_blur(error, blur)
+
+    return error.std.Limiter()
 
 
 def credit_mask(

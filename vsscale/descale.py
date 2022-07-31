@@ -135,43 +135,34 @@ def get_select_descale(
     return _select_descale, diff_clips
 
 
+DescKernelsT = Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str]
+
+
 @overload
 def descale(  # type: ignore
-    clip: vs.VideoNode,
-    width: int | Iterable[int] | None = None,
-    height: int | Iterable[int] = 720,
-    upscaler: Scaler | bool | None = Nnedi3(),
-    kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    mask: CreditMaskT | bool = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[False] = False,
-    shift: tuple[float, float] = (0, 0), dst_width: int | None = None, dst_height: int | None = None
+    clip: vs.VideoNode, width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
+    upscaler: Scaler | bool = Nnedi3(), kernels: DescKernelsT = Catrom(), mask: CreditMaskT | Literal[False] = descale_detail_mask,
+    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[False] = False, shift: tuple[float, float] = (0, 0),
+    scaler: Kernel = Spline144(), dst_width: int | None = None, dst_height: int | None = None
 ) -> vs.VideoNode:
     ...
 
 
 @overload
 def descale(
-    clip: vs.VideoNode,
-    width: int | Iterable[int] | None = None,
-    height: int | Iterable[int] = 720,
-    upscaler: Scaler | Literal[True] | None = Nnedi3(),
-    kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    mask: CreditMaskT | Literal[True] = descale_detail_mask,
+    clip: vs.VideoNode, width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
+    upscaler: Scaler | bool = Nnedi3(), kernels: DescKernelsT = Catrom(), mask: CreditMaskT = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[True] = True,
-    shift: tuple[float, float] = (0, 0), dst_width: int | None = None, dst_height: int | None = None
+    shift: tuple[float, float] = (0, 0), scaler: Kernel = Spline144(), dst_width: int | None = None, dst_height: int | None = None
 ) -> tuple[vs.VideoNode, vs.VideoNode]:
     ...
 
 
 def descale(
-    clip: vs.VideoNode,
-    width: int | Iterable[int] | None = None,
-    height: int | Iterable[int] = 720,
-    upscaler: Scaler | bool | None = Nnedi3(),
-    kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    mask: CreditMaskT | bool = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: bool = False,
-    shift: tuple[float, float] = (0, 0), dst_width: int | None = None, dst_height: int | None = None
+    clip: vs.VideoNode, width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
+    upscaler: Scaler | bool = Nnedi3(), kernels: DescKernelsT = Catrom(), mask: CreditMaskT | Literal[False] = descale_detail_mask,
+    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: bool = False, shift: tuple[float, float] = (0, 0),
+    scaler: Kernel = Spline144(), dst_width: int | None = None, dst_height: int | None = None
 ) -> vs.VideoNode | tuple[vs.VideoNode, vs.VideoNode]:
     assert clip.format
 
@@ -243,47 +234,38 @@ def descale(
 
     var_descaled = not (descaled.width and descaled.height)
 
-    if upscaler is False or mask:
-        if len(kernel_combinations) == 1:
-            rescaled = descale_attempts[0].rescaled
-        else:
-            rescaled = clip_y.std.FrameEval(
-                lambda f, n: descale_attempts[f.props.descale_attempt_idx].rescaled, descaled
-            )
-
-    if upscaler is True:
-        upscaler = Nnedi3()
-
-    if upscaler is False:
-        return depth(rescaled, bit_depth)
-
-    if upscaler is None:
-        upscaled = descaled
+    if len(kernel_combinations) == 1:
+        rescaled = descale_attempts[0].rescaled
     else:
+        rescaled = clip_y.std.FrameEval(
+            lambda f, n: descale_attempts[f.props.descale_attempt_idx].rescaled, descaled
+        )
+
+    if isinstance(upscaler, Scaler):
         upscaled = scale_var_clip(descaled, dest_width, dest_height, scaler=upscaler)
+        upscaled = depth(upscaled, bit_depth)
 
     if mask:
         if isinstance(mask, EdgeDetect):
             mask = mask.edgemask(clip_y)
         elif callable(mask):
             mask = mask(clip_y, rescaled)
-        else:
-            mask = descale_detail_mask(clip_y, rescaled)
 
-        if not var_descaled:
-            if upscaler is None:
-                mask = Spline144().scale(mask, upscaled.width, upscaled.height)
-                clip_y = Spline144().scale(clip_y, upscaled.width, upscaled.height)
+        if not var_descaled and isinstance(upscaler, Scaler):
+            mask = scaler.scale(mask, dest_width, dest_height)
+            clip_y = scaler.scale(clip_y, dest_width, dest_height)
+            upscaled = upscaled.std.MaskedMerge(clip_y, mask)
 
-                upscaled = upscaled.std.MaskedMerge(clip_y, mask)
+        mask = depth(mask, bit_depth)
 
-    upscaled = depth(upscaled, bit_depth)
-    if mask:
-        mask = depth(upscaled, bit_depth)
-
-    if not chroma:
+    if isinstance(upscaler, Scaler):
         out = upscaled
+    elif upscaler:
+        out = rescaled
     else:
+        out = descaled
+
+    if chroma and upscaler and (clip.width, clip.height) == (dest_width, dest_height):
         out = join([upscaled, *chroma], clip.format.color_family)
 
     if mask and show_mask:
