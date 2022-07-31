@@ -212,6 +212,7 @@ def descale(
 
     work_clip, *chroma = split(clip)
 
+    bit_depth = get_depth(clip)
     clip_y = work_clip.resize.Point(format=vs.GRAYS)
 
     max_kres_len = max(len(norm_kernels), len(norm_resolutions))
@@ -254,7 +255,7 @@ def descale(
         upscaler = Nnedi3()
 
     if upscaler is False:
-        return rescaled
+        return depth(rescaled, bit_depth)
 
     if upscaler is None:
         upscaled = descaled
@@ -276,7 +277,9 @@ def descale(
 
                 upscaled = upscaled.std.MaskedMerge(clip_y, mask)
 
-    upscaled = depth(upscaled, get_depth(clip))
+    upscaled = depth(upscaled, bit_depth)
+    if mask:
+        mask = depth(upscaled, bit_depth)
 
     if not chroma:
         out = upscaled
