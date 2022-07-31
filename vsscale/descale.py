@@ -7,7 +7,7 @@ from typing import Callable, Iterable, Literal, Sequence, Type, overload
 
 import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import normalise_seq
+from vsexprtools import get_h, get_w, normalise_seq
 from vskernels import Catrom, Kernel, Spline144, get_kernel, get_prop
 from vskernels.kernels.abstract import Scaler
 from vsmask.edge import EdgeDetect
@@ -142,8 +142,9 @@ def descale(  # type: ignore
     height: int | Iterable[int] = 720,
     upscaler: Scaler | bool | None = Nnedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    shift: tuple[float, float] = (0, 0), mask: CreditMaskT | bool = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[False] = False
+    mask: CreditMaskT | bool = descale_detail_mask,
+    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[False] = False,
+    shift: tuple[float, float] = (0, 0), dst_width: int | None = None, dst_height: int | None = None
 ) -> vs.VideoNode:
     ...
 
@@ -155,8 +156,9 @@ def descale(
     height: int | Iterable[int] = 720,
     upscaler: Scaler | Literal[True] | None = Nnedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    shift: tuple[float, float] = (0, 0), mask: CreditMaskT | Literal[True] = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[True] = True
+    mask: CreditMaskT | Literal[True] = descale_detail_mask,
+    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: Literal[True] = True,
+    shift: tuple[float, float] = (0, 0), dst_width: int | None = None, dst_height: int | None = None
 ) -> tuple[vs.VideoNode, vs.VideoNode]:
     ...
 
@@ -167,8 +169,9 @@ def descale(
     height: int | Iterable[int] = 720,
     upscaler: Scaler | bool | None = Nnedi3(),
     kernels: Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str] = Catrom(),
-    shift: tuple[float, float] = (0, 0), mask: CreditMaskT | bool = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: bool = False
+    mask: CreditMaskT | bool = descale_detail_mask,
+    mode: DescaleMode = DescaleMode.PlaneAverage(0.0), show_mask: bool = False,
+    shift: tuple[float, float] = (0, 0), dst_width: int | None = None, dst_height: int | None = None
 ) -> vs.VideoNode | tuple[vs.VideoNode, vs.VideoNode]:
     assert clip.format
 
@@ -178,11 +181,18 @@ def descale(
         heights = list(height)
 
     if width is None:
-        widths = [round(h * clip.width / clip.height) for h in heights]
+        widths = [get_w(h, clip) for h in heights]
     elif isinstance(width, int):
         widths = [width]
     else:
         widths = list(width)
+
+    if dst_width is None and dst_height:
+        dest_width, dest_height = get_w(dst_height, clip), dst_height
+    elif dst_height is None and dst_width:
+        dest_width, dest_height = dst_width, get_h(dst_width, clip)
+    else:
+        dest_width, dest_height = clip.width, clip.height
 
     if not isinstance(kernels, Sequence):
         kernels = [kernels]
@@ -249,7 +259,7 @@ def descale(
     if upscaler is None:
         upscaled = descaled
     else:
-        upscaled = scale_var_clip(descaled, clip_y.width, clip_y.height, scaler=upscaler)
+        upscaled = scale_var_clip(descaled, dest_width, dest_height, scaler=upscaler)
 
     if mask:
         if isinstance(mask, EdgeDetect):
