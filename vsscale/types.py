@@ -15,7 +15,8 @@ from .utils import merge_clip_props
 __all__ = [
     'GenericScaler',
     'CreditMaskT', 'Resolution', 'DescaleAttempt',
-    'DescaleMode', 'PlaneStatsKind'
+    'DescaleMode', 'DescaleResult', 'PlaneStatsKind',
+    '_DescaleTypeGuards'
 ]
 
 
@@ -123,6 +124,24 @@ class DescaleAttempt(NamedTuple):
         )
 
 
+@dataclass
+class DescaleResult:
+    """Descaled clip, can be var res"""
+    descaled: vs.VideoNode
+
+    """Rescaled clip, can be var res"""
+    rescaled: vs.VideoNode
+
+    """Upscaled clip"""
+    upscaled: vs.VideoNode | None
+
+    """Descale error mask"""
+    mask: vs.VideoNode | None
+
+    """Descale attempts used"""
+    attempts: list[DescaleAttempt]
+
+
 class PlaneStatsKind(str, Enum):
     AVG = 'Average'
     MIN = 'Min'
@@ -191,3 +210,29 @@ class DescaleMode(DescaleModeMeta, IntEnum):
 
     def __hash__(self) -> int:
         return hash(self._name_)
+
+
+class _DescaleTypeGuards:
+    class _UpscalerNotNone(DescaleResult):
+        upscaled: vs.VideoNode
+
+    class _UpscalerIsNone(DescaleResult):
+        upscaled: None
+
+    class _MaskNotNone(DescaleResult):
+        mask: vs.VideoNode
+
+    class _MaskIsNone(DescaleResult):
+        mask: None
+
+    class UpscalerNotNoneMaskNotNone(_UpscalerNotNone, _MaskNotNone, DescaleResult):
+        ...
+
+    class UpscalerNotNoneMaskIsNone(_UpscalerNotNone, _MaskIsNone, DescaleResult):
+        ...
+
+    class UpscalerIsNoneMaskNotNone(_UpscalerIsNone, _MaskNotNone, DescaleResult):
+        ...
+
+    class UpscalerIsNoneMaskIsNone(_UpscalerIsNone, _MaskIsNone, DescaleResult):
+        ...
