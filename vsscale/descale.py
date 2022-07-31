@@ -252,13 +252,12 @@ def descale(
         upscaled = scale_var_clip(descaled, clip_y.width, clip_y.height, scaler=upscaler)
 
     if mask:
-        if mask is True:
-            mask = descale_detail_mask
-
         if isinstance(mask, EdgeDetect):
             mask = mask.edgemask(clip_y)
         elif callable(mask):
             mask = mask(clip_y, rescaled)
+        else:
+            mask = descale_detail_mask(clip_y, rescaled)
 
         if not var_descaled:
             if upscaler is None:
