@@ -230,6 +230,8 @@ def descale(
     else:
         descaled = descale_attempts[0].descaled
 
+    var_descaled = not (descaled.width and descaled.height)
+
     if upscaler is False or mask:
         if len(kernel_combinations) == 1:
             rescaled = descale_attempts[0].rescaled
@@ -258,11 +260,12 @@ def descale(
         elif callable(mask):
             mask = mask(clip_y, rescaled)
 
-        if upscaler is None:
-            mask = Spline144().scale(mask, upscaled.width, upscaled.height)
-            clip_y = Spline144().scale(clip_y, upscaled.width, upscaled.height)
+        if not var_descaled:
+            if upscaler is None:
+                mask = Spline144().scale(mask, upscaled.width, upscaled.height)
+                clip_y = Spline144().scale(clip_y, upscaled.width, upscaled.height)
 
-        upscaled = upscaled.std.MaskedMerge(clip_y, mask)
+                upscaled = upscaled.std.MaskedMerge(clip_y, mask)
 
     upscaled = depth(upscaled, get_depth(clip))
 
