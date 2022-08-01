@@ -7,8 +7,8 @@ from typing import Callable
 
 import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import expr_func, aka_expr_available
-from vskernels import Catrom, Matrix, Transfer, VSFunction, get_kernel
+from vsexprtools import PlanesT, aka_expr_available, expr_func
+from vskernels import Bilinear, Catrom, Matrix, Transfer, VSFunction, get_kernel
 from vskernels.kernels.abstract import Scaler
 from vsrgtools import box_blur, gauss_blur
 from vsutil import depth, fallback, get_depth, get_w
@@ -17,10 +17,38 @@ from .gamma import gamma2linear, linear2gamma
 from .types import Resolution
 
 __all__ = [
-    'SSIM', 'ssim_downsample', 'scale_var_clip'
+    'DPID', 'SSIM',
+    'ssim_downsample',
+    'scale_var_clip'
 ]
 
 core = vs.core
+
+
+@dataclass
+class DPID(Scaler):
+    sigma: float = 0.1
+    ref: vs.VideoNode | Scaler | None = None
+    scaler: Scaler = Bilinear()
+    planes: PlanesT = None
+
+    def scale(self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0)) -> vs.VideoNode:
+
+        if isinstance(self.ref, vs.VideoNode):
+            assert clip.format and self.ref.format
+            if clip.format != self.ref.format:
+                raise ValueError('DPID.scale: ref clip must be the same format as clip!')
+
+            ref = self.ref
+        else:
+            ref = clip
+
+        scaler = self.ref if isinstance(self.ref, Scaler) else self.scaler
+
+        if (ref.width, ref.height) != (width, height):
+            ref = scaler.scale(ref, width, height)
+
+        return core.dpid.DpidRaw(clip, ref, self.sigma, shift[1], shift[0], True, self.planes)
 
 
 @dataclass
