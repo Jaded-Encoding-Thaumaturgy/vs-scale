@@ -300,14 +300,16 @@ def descale(
     else:
         descaled = descale_attempts[0].descaled
 
-    var_descaled = not (descaled.width and descaled.height)
-
     if len(kernel_combinations) == 1:
         rescaled = descale_attempts[0].rescaled
     else:
         rescaled = clip_y.std.FrameEval(
             lambda f, n: descale_attempts[f.props.descale_attempt_idx].rescaled, descaled
         )
+
+    clip_y = depth(clip_y, bit_depth)
+    descaled = depth(descaled, bit_depth)
+    rescaled = depth(rescaled, bit_depth)
 
     upscaled = None
     if upscaler:
@@ -318,14 +320,14 @@ def descale(
         if isinstance(mask, EdgeDetect):
             mask = mask.edgemask(clip_y)
         elif callable(mask):
-            mask = mask(clip_y, rescaled)
+            mask = mask(clip, rescaled)
 
-        if not var_descaled and upscaled:
+        mask = depth(mask, bit_depth)
+
+        if upscaled:
             mask = scaler.scale(mask, dest_width, dest_height)
             clip_y = scaler.scale(clip_y, dest_width, dest_height)
             upscaled = upscaled.std.MaskedMerge(clip_y, mask)
-
-        mask = depth(mask, bit_depth)
 
     if upscaled:
         out = upscaled
