@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 from functools import partial
-from typing import Callable, Tuple
+from typing import Callable
 
 import vapoursynth as vs
 from vsaa import Nnedi3
@@ -30,7 +30,7 @@ class SSIM(Scaler):
     sigmoid: bool = False
     scaler: Scaler = Catrom()
 
-    def scale(self, clip: vs.VideoNode, width: int, height: int, shift: Tuple[float, float] = (0, 0)) -> vs.VideoNode:
+    def scale(self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0)) -> vs.VideoNode:
         return ssim_downsample(clip, width, height, self.smooth, self.scaler, self.curve, self.sigmoid, shift)
 
 
@@ -39,7 +39,7 @@ def ssim_downsample(
     smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
     scaler: Scaler | str = Catrom(),
     curve: Transfer | bool = False, sigmoid: bool = False,
-    shift: Tuple[float, float] = (0, 0)
+    shift: tuple[float, float] = (0, 0)
 ) -> vs.VideoNode:
     """
     SSIM downsampler is an image downscaling technique that aims to optimize
@@ -130,7 +130,7 @@ def ssim_downsample(
 def scale_var_clip(
     clip: vs.VideoNode,
     width: int | Callable[[Resolution], int] | None, height: int | Callable[[Resolution], int],
-    shift: Tuple[float, float] | Callable[[Resolution], Tuple[float, float]] = (0, 0),
+    shift: tuple[float, float] | Callable[[Resolution], tuple[float, float]] = (0, 0),
     scaler: Scaler | Callable[[Resolution], Scaler] = Nnedi3(), debug: bool = False
 ) -> vs.VideoNode:
     if not debug:

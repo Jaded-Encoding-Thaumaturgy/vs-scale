@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 import vapoursynth as vs
 from vsexprtools import expr_func, aka_expr_available
 from vskernels import MatrixCoefficients, Transfer
@@ -18,7 +16,7 @@ def _linear_diff(cont: float, thr: float, diff: str = '') -> str:
     return f'1 1 {cont} {thr} {inv_op} * exp + /'
 
 
-def _sigmoid_x(sigmoid: bool, cont: float, thr: float) -> Tuple[str, str, str]:
+def _sigmoid_x(sigmoid: bool, cont: float, thr: float) -> tuple[str, str, str]:
     if not sigmoid:
         return '', '', ''
 

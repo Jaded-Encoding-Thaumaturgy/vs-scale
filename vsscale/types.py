@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
-from typing import Any, Callable, NamedTuple, Protocol, Tuple, Union
+from typing import Any, Callable, NamedTuple, Protocol, Union
 
 import vapoursynth as vs
 from vsexprtools import expr_func, ComparatorFunc
@@ -30,7 +30,7 @@ class _GeneriScaleNoShift(Protocol):
 
 class _GeneriScaleWithShift(Protocol):
     def __call__(
-        self, clip: vs.VideoNode, width: int, height: int, shift: Tuple[float, float],
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
         *args: Any, **kwds: Any
     ) -> vs.VideoNode:
         ...
@@ -45,7 +45,7 @@ class GenericScaler(Scaler):
         self.func = func
         self.kwargs = kwargs
 
-    def scale(self, clip: vs.VideoNode, width: int, height: int, shift: Tuple[float, float] = (0, 0)) -> vs.VideoNode:
+    def scale(self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0)) -> vs.VideoNode:
         if shift != (0, 0):
             try:
                 return self.func(clip, width, height, shift, **self.kwargs)
@@ -98,7 +98,7 @@ class DescaleAttempt(NamedTuple):
 
     @classmethod
     def from_args(
-        cls, clip: vs.VideoNode, width: int, height: int, shift: Tuple[float, float],
+        cls, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
         kernel: Kernel, mode: DescaleMode, **kwargs: VideoProp
     ) -> DescaleAttempt:
         descaled = kernel.descale(clip, width, height, shift)
