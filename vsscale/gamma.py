@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import vapoursynth as vs
-from vsexprtools import expr_func, aka_expr_available
+from vsexprtools import ExprOp, expr_func, aka_expr_available
 from vskernels import MatrixCoefficients, Transfer
 from vsutil import get_depth
 
@@ -30,9 +30,7 @@ def _sigmoid_x(sigmoid: bool, cont: float, thr: float) -> tuple[str, str, str]:
 
 
 def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer) -> vs.VideoNode:
-    clamping = '0.0 1.0 clamp' if aka_expr_available else'0.0 max 1.0 min'
-
-    linear = expr_func(clip, f'{header} {expr} {clamping}')
+    linear = expr_func(clip, f'{header} {expr} {ExprOp.clamp(0, 1)}')
 
     return linear.std.SetFrameProps(_Transfer=curve.value)
 
