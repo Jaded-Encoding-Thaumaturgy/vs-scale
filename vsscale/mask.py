@@ -135,7 +135,7 @@ def simple_detail_mask(
 
     y = get_y(clip)
 
-    blur = y.bilateral.Gaussian(sigma) if sigma else y
+    blur = gauss_blur(y, sigma) if sigma else y
 
     mask_a = range_mask(blur, rad=rad).std.Binarize(brz_a)
 
