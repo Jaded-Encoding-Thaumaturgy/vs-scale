@@ -18,7 +18,7 @@ core = vs.core
 
 
 def descale_detail_mask(clip: vs.VideoNode, rescaled: vs.VideoNode, threshold: float = 0.05) -> vs.VideoNode:
-    mask = core.akarin.Expr([get_y(clip), get_y(rescaled)], 'x y - abs')
+    mask = expr_func([get_y(clip), get_y(rescaled)], 'x y - abs')
 
     mask = mask.std.Binarize(threshold)
 

@@ -134,7 +134,7 @@ def ssim_downsample(
 
     l1 = scaler.scale(clip, width, height, shift)
 
-    l1_sq, c_sq = [x.akarin.Expr('x dup *') for x in (l1, clip)]
+    l1_sq, c_sq = [expr_func(x, 'x dup *') for x in (l1, clip)]
 
     l2 = scaler.scale(c_sq, width, height, shift)
 
