@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from functools import partial
 from typing import Callable
@@ -56,10 +55,13 @@ class SSIM(Scaler):
     smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5
     curve: Transfer | bool = False
     sigmoid: bool = False
+    epsilon: float = 1e-6
     scaler: Scaler = Catrom()
 
     def scale(self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0)) -> vs.VideoNode:
-        return ssim_downsample(clip, width, height, self.smooth, self.scaler, self.curve, self.sigmoid, shift)
+        return ssim_downsample(
+            clip, width, height, self.smooth, self.scaler, self.curve, self.sigmoid, shift, self.epsilon
+        )
 
 
 def ssim_downsample(
