@@ -67,7 +67,7 @@ def ssim_downsample(
     smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
     scaler: Scaler | str = Catrom(),
     curve: Transfer | bool = False, sigmoid: bool = False,
-    shift: tuple[float, float] = (0, 0)
+    shift: tuple[float, float] = (0, 0), epsilon: float = 1e-6
 ) -> vs.VideoNode:
     """
     SSIM downsampler is an image downscaling technique that aims to optimize
@@ -107,8 +107,6 @@ def ssim_downsample(
     :return:            Downsampled clip.
     """
     assert clip.format
-
-    epsilon = sys.float_info.epsilon
 
     if isinstance(scaler, str):
         scaler = get_kernel(scaler)()
