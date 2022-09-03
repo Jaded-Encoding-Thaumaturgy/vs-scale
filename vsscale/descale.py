@@ -333,13 +333,15 @@ def descale(
         out = upscaled
     elif upscaler:
         out = descaled
+    else:
+        out = clip
 
     if chroma and upscaled and (clip.width, clip.height) == (dest_width, dest_height):
         out = join([upscaled, *chroma], clip.format.color_family)
 
     if result:
         return DescaleResult(
-            descaled, rescaled, upscaled, mask if mask else None, descale_attempts  # type: ignore
+            descaled, rescaled, upscaled, mask if mask else None, descale_attempts, out  # type: ignore
         )
 
     return out

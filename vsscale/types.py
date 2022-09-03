@@ -141,6 +141,9 @@ class DescaleResult:
     """Descale attempts used"""
     attempts: list[DescaleAttempt]
 
+    """Normal output"""
+    out: vs.VideoNode
+
 
 class PlaneStatsKind(str, Enum):
     AVG = 'Average'
