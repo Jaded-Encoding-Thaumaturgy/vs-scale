@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-import vapoursynth as vs
-from vsexprtools import ExprOp, combine, expect_bits, expr_func, shift_clip_multi
+from vsexprtools import ExprOp, combine, expr_func
 from vskernels import Catrom
 from vsmask.edge import PrewittTCanny
 from vsmask.util import XxpandMode, expand
 from vsrgtools import box_blur, gauss_blur, removegrain
-from vsutil import depth, get_depth, get_neutral_value, get_y, iterate, scale_value, split
+from vstools import (
+    core, depth, expect_bits, get_depth, get_neutral_value, get_y, iterate, scale_value, shift_clip_multi, split, vs
+)
 
 __all__ = [
     'descale_detail_mask', 'descale_error_mask',
     'simple_detail_mask', 'multi_detail_mask',
     'credit_mask'
 ]
-
-core = vs.core
 
 
 def descale_detail_mask(clip: vs.VideoNode, rescaled: vs.VideoNode, threshold: float = 0.05) -> vs.VideoNode:
@@ -115,7 +114,7 @@ def credit_mask(
         start_frame=0, thr=thr, prefilter=prefilter
     )
 
-    bits, credit_mask = expect_bits(ed_mask)
+    credit_mask, bits = expect_bits(ed_mask)
     credit_mask = iterate(credit_mask, core.std.Minimum, 6)
     credit_mask = iterate(credit_mask, lambda x: core.std.Minimum(x).std.Maximum(), 8)
     if expand:

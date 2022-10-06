@@ -3,22 +3,17 @@ from __future__ import annotations
 from functools import partial
 from itertools import groupby
 from math import log2
-from typing import Callable, Iterable, Literal, Sequence, Type, overload
+from typing import Callable, Iterable, Literal, Sequence, Type, cast, overload
 
-import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import get_h, get_w, normalise_seq
-from vskernels import Catrom, Kernel, Spline144, get_kernel, get_prop
+from vskernels import Catrom, Kernel, Spline144
 from vskernels.kernels.abstract import Scaler
 from vsmask.edge import EdgeDetect
-from vsutil import depth, get_depth, join, split
+from vstools import core, depth, get_depth, get_h, get_prop, get_w, join, normalize_seq, split, vs
 
 from .mask import descale_detail_mask
 from .scale import scale_var_clip
 from .types import CreditMaskT, DescaleAttempt, DescaleMode, DescaleResult, PlaneStatsKind, _DescaleTypeGuards
-
-core = vs.core
-
 
 __all__ = [
     'get_select_descale', 'descale'
@@ -258,9 +253,8 @@ def descale(
 
     norm_resolutions = list(zip(widths, heights))
     norm_kernels = [
-        get_kernel(kernel)() if isinstance(kernel, str) else (
-            kernel if isinstance(kernel, Kernel) else kernel()
-        ) for kernel in kernels
+        kernel if isinstance(kernel, Kernel) else Kernel.from_param(kernel)()
+        for kernel in kernels
     ]
 
     if len(widths) != len(heights):
@@ -277,7 +271,7 @@ def descale(
     max_kres_len = max(len(norm_kernels), len(norm_resolutions))
 
     kernel_combinations = list[tuple[Kernel, tuple[int, int]]](zip(*(
-        normalise_seq(x, max_kres_len) for x in (norm_kernels, norm_resolutions)  # type: ignore
+        normalize_seq(x, max_kres_len) for x in (norm_kernels, norm_resolutions)  # type: ignore
     )))
 
     descale_attempts = [
@@ -304,7 +298,7 @@ def descale(
         rescaled = descale_attempts[0].rescaled
     else:
         rescaled = clip_y.std.FrameEval(
-            lambda f, n: descale_attempts[f.props.descale_attempt_idx].rescaled, descaled
+            lambda f, n: descale_attempts[cast(int, f.props.descale_attempt_idx)].rescaled, descaled
         )
 
     clip_y = depth(clip_y, bit_depth)
@@ -321,6 +315,8 @@ def descale(
             mask = mask.edgemask(clip_y)
         elif callable(mask):
             mask = mask(clip, rescaled)
+
+        assert isinstance(mask, vs.VideoNode)
 
         mask = depth(mask, bit_depth)
 

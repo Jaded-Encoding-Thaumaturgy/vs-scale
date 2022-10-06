@@ -2,15 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Callable
+from typing import Any, Callable
 
-import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import PlanesT, aka_expr_available, expr_func
-from vskernels import Bilinear, Catrom, Matrix, Transfer, VSFunction, get_kernel
-from vskernels.kernels.abstract import Scaler
+from vsexprtools import aka_expr_available, expr_func
+from vskernels import Bilinear, Catrom, Kernel, KernelT, Scaler
 from vsrgtools import box_blur, gauss_blur
-from vsutil import depth, fallback, get_depth, get_w
+from vstools import Matrix, PlanesT, Transfer, VSFunction, core, depth, fallback, get_depth, get_w, vs, inject_self
 
 from .gamma import gamma2linear, linear2gamma
 from .types import Resolution
@@ -21,8 +19,6 @@ __all__ = [
     'scale_var_clip'
 ]
 
-core = vs.core
-
 
 @dataclass
 class DPID(Scaler):
@@ -31,8 +27,10 @@ class DPID(Scaler):
     scaler: Scaler = Bilinear()
     planes: PlanesT = None
 
-    def scale(self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0)) -> vs.VideoNode:
-
+    @inject_self
+    def scale(  # type: ignore[override]
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+    ) -> vs.VideoNode:
         if isinstance(self.ref, vs.VideoNode):
             assert clip.format and self.ref.format
             if clip.format != self.ref.format:
@@ -47,7 +45,12 @@ class DPID(Scaler):
         if (ref.width, ref.height) != (width, height):
             ref = scaler.scale(ref, width, height)
 
-        return core.dpid.DpidRaw(clip, ref, self.sigma, shift[1], shift[0], True, self.planes)
+        kwargs |= {
+            'lambda_': self.sigma, 'planes': self.planes,
+            'src_left': shift[1], 'src_top': shift[0]
+        } | kwargs | {'read_chromaloc': True}
+
+        return core.dpid.DpidRaw(clip, ref, **kwargs)
 
 
 @dataclass
@@ -58,16 +61,22 @@ class SSIM(Scaler):
     epsilon: float = 1e-6
     scaler: Scaler = Catrom()
 
-    def scale(self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0)) -> vs.VideoNode:
-        return ssim_downsample(
-            clip, width, height, self.smooth, self.scaler, self.curve, self.sigmoid, shift, self.epsilon
-        )
+    @inject_self
+    def scale(  # type: ignore[override]
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+    ) -> vs.VideoNode:
+        kwargs |= {
+            'smooth': self.smooth, 'scaler': self.scaler, 'curve': self.curve,
+            'sigmoid': self.sigmoid, 'epsilon': self.epsilon
+        } | kwargs | {'shift': shift}
+
+        return ssim_downsample(clip, width, height, **kwargs)
 
 
 def ssim_downsample(
     clip: vs.VideoNode, width: int | None = None, height: int = 720,
     smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
-    scaler: Scaler | str = Catrom(),
+    scaler: Scaler | KernelT = Catrom,
     curve: Transfer | bool = False, sigmoid: bool = False,
     shift: tuple[float, float] = (0, 0), epsilon: float = 1e-6
 ) -> vs.VideoNode:
@@ -110,9 +119,10 @@ def ssim_downsample(
     """
     assert clip.format
 
-    if isinstance(scaler, str):
-        scaler = get_kernel(scaler)()
-    elif isinstance(scaler, SSIM):
+    if not isinstance(scaler, Scaler):
+        scaler = Kernel.from_param(scaler)()
+
+    if isinstance(scaler, SSIM):
         raise ValueError("SSIM: you can't have SSIM as a scaler for itself!")
 
     if callable(smooth):
@@ -122,7 +132,7 @@ def ssim_downsample(
     elif isinstance(smooth, float):
         filter_func = partial(gauss_blur, sigma=smooth)
 
-    width = fallback(width, get_w(height, aspect_ratio=clip.width / clip.height))
+    width = fallback(width, get_w(height, clip))
 
     if curve is True:
         curve = Transfer.from_matrix(Matrix.from_video(clip))

@@ -1,25 +1,20 @@
 from __future__ import annotations
 
-from vskernels import Kernel, get_kernel
+from typing import Any
+
+from vskernels import Kernel, KernelT
+from vstools import CustomValueError, FuncExceptT
 
 __all__ = [
     'CompareSameKernelError'
 ]
 
 
-class CompareSameKernelError(ValueError):
+class CompareSameKernelError(CustomValueError):
     """Raised when two of the same kernels are compared to each other."""
 
     def __init__(
-        self, function: str, kernel: Kernel | str,
-        message: str = "{func}: 'You may not compare {kernel} with itself!'"
+        self, func: FuncExceptT, kernel: KernelT, message: str = 'You may not compare {kernel} with itself!',
+        **kwargs: Any
     ) -> None:
-        self.function: str = function
-        self.message: str = message
-
-        if isinstance(kernel, str):
-            kernel = get_kernel(kernel)()
-
-        self.kernel: Kernel = kernel
-
-        super().__init__(self.message.format(func=self.function, kernel=self.kernel.__class__.__name__))
+        super().__init__(message, func, kernel=Kernel.from_param(kernel), **kwargs)

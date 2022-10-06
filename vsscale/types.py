@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, IntEnum
 from typing import Any, Callable, NamedTuple, Protocol, Union
 
-import vapoursynth as vs
-from vsexprtools import expr_func, ComparatorFunc
-from vskernels import Catrom, Kernel, VideoProp
-from vskernels.kernels.abstract import Scaler
+from vsexprtools import expr_func
+from vskernels import Catrom, Kernel, Scaler
 from vsmask.edge import EdgeDetect
-
-from .utils import merge_clip_props
+from vstools import ComparatorFunc, CustomIntEnum, CustomStrEnum, VSMapValue, merge_clip_props, vs
 
 __all__ = [
     'GenericScaler',
@@ -45,20 +41,23 @@ class GenericScaler(Scaler):
         self.func = func
         self.kwargs = kwargs
 
-    def scale(self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0)) -> vs.VideoNode:
+    def scale(  # type: ignore
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+    ) -> vs.VideoNode:
+        kwargs = self.kwargs | kwargs
         if shift != (0, 0):
             try:
-                return self.func(clip, width, height, shift, **self.kwargs)
+                return self.func(clip, width, height, shift, **kwargs)
             except BaseException:
                 try:
-                    return self.func(clip, width=width, height=height, shift=shift, **self.kwargs)
+                    return self.func(clip, width=width, height=height, shift=shift, **kwargs)
                 except BaseException:
                     pass
 
         try:
-            scaled = self.func(clip, width, height, **self.kwargs)
+            scaled = self.func(clip, width, height, **kwargs)
         except BaseException:
-            scaled = self.func(clip, width=width, height=height, **self.kwargs)
+            scaled = self.func(clip, width=width, height=height, **kwargs)
 
         return self.kernel.shift(scaled, shift)
 
@@ -99,7 +98,7 @@ class DescaleAttempt(NamedTuple):
     @classmethod
     def from_args(
         cls, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
-        kernel: Kernel, mode: DescaleMode, **kwargs: VideoProp
+        kernel: Kernel, mode: DescaleMode, **kwargs: VSMapValue
     ) -> DescaleAttempt:
         descaled = kernel.descale(clip, width, height, shift)
         descaled = descaled.std.SetFrameProps(**kwargs)
@@ -145,7 +144,7 @@ class DescaleResult:
     out: vs.VideoNode
 
 
-class PlaneStatsKind(str, Enum):
+class PlaneStatsKind(CustomStrEnum):
     AVG = 'Average'
     MIN = 'Min'
     MAX = 'Max'
@@ -158,7 +157,7 @@ class DescaleModeMeta:
     op: ComparatorFunc = field(default_factory=lambda: max)
 
 
-class DescaleMode(DescaleModeMeta, IntEnum):
+class DescaleMode(DescaleModeMeta, CustomIntEnum):
     PlaneDiff = 0
     PlaneDiffMax = 1
     PlaneDiffMin = 2

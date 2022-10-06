@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import vapoursynth as vs
-from vsexprtools import ExprOp, expr_func, aka_expr_available
-from vskernels import MatrixCoefficients, Transfer
-from vsutil import get_depth
+from vsexprtools import ExprOp, aka_expr_available, expr_func
+from vstools import MatrixCoefficients, Transfer, get_depth, vs
 
 __all__ = [
     'gamma2linear', 'linear2gamma'
@@ -46,7 +44,7 @@ def gamma2linear(
     if get_depth(clip) != 32 and clip.format.sample_type != vs.FLOAT:
         raise ValueError('gamma2linear: Your clip must be 32bit float!')
 
-    c = MatrixCoefficients.from_curve(curve)
+    c = MatrixCoefficients.from_transfer(curve)
 
     header, x0, x1 = _sigmoid_x(sigmoid, cont, thr)
 
@@ -68,7 +66,7 @@ def linear2gamma(
     if get_depth(clip) != 32 and clip.format.sample_type != vs.FLOAT:
         raise ValueError('linear2gamma: Your clip must be 32bit float!')
 
-    c = MatrixCoefficients.from_curve(curve)
+    c = MatrixCoefficients.from_transfer(curve)
 
     header, x0, x1 = _sigmoid_x(sigmoid, cont, thr)
 
