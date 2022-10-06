@@ -5,18 +5,22 @@ from itertools import groupby
 from math import log2
 from typing import Callable, Iterable, Literal, Sequence, Type, cast, overload
 
-from vsaa import Nnedi3
-from vskernels import Catrom, Kernel, Spline144
-from vskernels.kernels.abstract import Scaler
+from vsaa import Eedi3, Nnedi3, SuperSampler
+from vskernels import Catrom, Kernel, KernelT, Scaler, Spline144
 from vsmask.edge import EdgeDetect
-from vstools import core, depth, get_depth, get_h, get_prop, get_w, join, normalize_seq, split, vs
+from vstools import (
+    check_variable, core, depth, get_depth, get_h, get_prop, get_w, get_y, iterate, join, normalize_seq, scale_thresh,
+    split, vs
+)
 
 from .mask import descale_detail_mask
-from .scale import scale_var_clip
+from .scale import SSIM, scale_var_clip
 from .types import CreditMaskT, DescaleAttempt, DescaleMode, DescaleResult, PlaneStatsKind, _DescaleTypeGuards
 
 __all__ = [
-    'get_select_descale', 'descale'
+    'get_select_descale', 'descale',
+
+    'mixed_rescale'
 ]
 
 
@@ -341,3 +345,111 @@ def descale(
         )
 
     return out
+
+
+def mixed_rescale(
+    clip: vs.VideoNode, width: None | int = None, height: int = 720,
+    kernel: KernelT = Catrom,
+    downscaler: Scaler | KernelT = SSIM,
+    credit_mask: CreditMaskT | vs.VideoNode | None = descale_detail_mask, mask_thr: float = 0.05,
+    mix_strength: float = 0.25, show_mask: bool | int = False,
+    # Default settings set to match insaneAA as closely as reasonably possible
+    eedi3: SuperSampler = Eedi3(
+        alpha=0.2, beta=0.25, gamma=1000, nrad=2, mdis=20, sclip_aa=Nnedi3(nsize=0, nns=4, qual=2, pscrn=1)
+    )
+) -> vs.VideoNode:
+    """
+    Rewrite of InsaneAA to make it easier to use and maintain.
+    Written by LightArrowsEXE, taken from lvsfunc.
+
+    Descales and downscales the given clip and merges them together with a set strength.
+
+    This can be useful for dealing with a source that you can't accurately descale,
+    but you still want to force it. Not recommended to use it on everything, however.
+
+    A string can be passed instead of a Kernel object if you want to use that.
+    This gives you access to every kernel object in :py:mod:`vskernels`.
+    For more information on what every kernel does, please refer to their documentation.
+
+    :param clip:            Clip to process.
+    :param width:           Upscale width. If None, determine from `height` (Default: None).
+    :param height:          Upscale height (Default: 720).
+    :param kernel:          py:class:`vskernels.Kernel` object used for the descaling.
+                            This can also be the string name of the kernel
+                            (Default: py:class:`vskernels.Catrom`).
+    :param downscaler:      Kernel or custom scaler used to downscale the clip.
+                            This can also be the string name of the kernel
+                            (Default: py:func:`lvsfunc.scale.ssim_downsample`).
+    :param credit_mask:     Function or mask clip used to mask detail. If ``None``, no masking.
+                            Function must accept a clip and a reupscaled clip and return a mask.
+                            (Default: :py:func:`lvsfunc.scale.descale_detail_mask`).
+    :param mask_thr:        Binarization threshold for :py:func:`lvsfunc.scale.descale_detail_mask` (Default: 0.05).
+    :param mix_strength:    Merging strength between the descaled and downscaled clip.
+                            Stronger values will make the line-art look closer to the downscaled clip.
+                            This can get pretty dangerous very quickly if you use a sharp ``downscaler``!
+    :param show_mask:       Return the ``credit_mask``. If set to `2`, it will return the line-art mask instead.
+    :param eedi3:           Eedi3 instance that will be used for supersampling.
+
+    :return:                Rescaled clip with a downscaled clip merged with it and credits masked.
+
+    :raises ValueError:     ``mask_thr`` is not between 0.0–1.0.
+    """
+    assert check_variable(clip, "mixed_rescale")
+
+    if not 0 <= mask_thr <= 1:
+        raise ValueError(f"mixed_rescale: '`mask_thr` must be between 0.0 and 1.0! Not {mask_thr}!'")
+
+    width = width or get_w(height, clip.width / clip.height, 1)
+
+    kernel = Kernel.ensure_obj(kernel)
+    downscaler = Kernel.ensure_obj(downscaler)
+
+    bits = get_depth(clip)
+    clip_y = get_y(clip)
+
+    line_mask = clip_y.std.Prewitt(scale=2).std.Maximum().std.Limiter()
+
+    descaled = kernel.descale(clip_y, width, height)
+    upscaled = kernel.scale(descaled, clip.width, clip.height)
+
+    downscaled = downscaler.scale(clip_y, width, height)
+
+    merged = core.akarin.Expr([descaled, downscaled], f'x {mix_strength} * y 1 {mix_strength} - * +')
+
+    if isinstance(credit_mask, vs.VideoNode):
+        detail_mask = depth(credit_mask, get_depth(clip))
+    elif not credit_mask:
+        detail_mask = clip_y.std.BlankClip(length=1) * clip.num_frames
+    else:
+        detail_mask = descale_detail_mask(clip_y, upscaled, threshold=scale_thresh(mask_thr, clip))
+        detail_mask = iterate(detail_mask, core.std.Inflate, 2)
+        detail_mask = iterate(detail_mask, core.std.Maximum, 2).std.Limiter()
+
+    if show_mask == 2:
+        return line_mask
+    elif show_mask:
+        return detail_mask
+
+    double = eedi3.scale(merged, clip.width * 2, clip.height * 2)
+    rescaled = SSIM.scale(double, clip.width, clip.height)
+
+    rescaled = depth(rescaled, bits)
+
+    masked = rescaled.std.MaskedMerge(clip_y, detail_mask)
+    masked = clip_y.std.MaskedMerge(masked, line_mask)
+
+    if clip.format.num_planes == 1:
+        return masked
+
+    return core.std.ShufflePlanes([masked, clip], planes=[0, 1, 2], colorfamily=vs.YUV)
+
+
+# TODO: Write a function that checks every possible combination of B and C in bicubic
+#       and returns a list of the results.
+#       Possibly return all the frames in order of smallest difference to biggest.
+#       Not reliable, but maybe useful as starting point.
+
+
+# TODO: Write "multi_descale", a function that allows you to descale a frame twice,
+#       like for example when the CGI in a show is handled in a different resolution
+#       than the drawn animation.
