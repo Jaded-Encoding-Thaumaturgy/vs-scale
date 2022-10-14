@@ -33,7 +33,7 @@ class _GeneriScaleWithShift(Protocol):
 
 
 class GenericScaler(Scaler):
-    kernel: Kernel = Catrom()
+    kernel: type[Kernel] | Kernel = field(default_factory=lambda: Catrom(), kw_only=True)
 
     def __init__(
         self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | Callable[..., vs.VideoNode], **kwargs: Any
@@ -45,6 +45,7 @@ class GenericScaler(Scaler):
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
         kwargs = self.kwargs | kwargs
+
         if shift != (0, 0):
             try:
                 return self.func(clip, width, height, shift, **kwargs)
