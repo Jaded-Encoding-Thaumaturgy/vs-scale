@@ -6,7 +6,8 @@ from vsmask.edge import PrewittTCanny
 from vsmask.util import XxpandMode, expand
 from vsrgtools import box_blur, gauss_blur, removegrain
 from vstools import (
-    core, depth, expect_bits, get_depth, get_neutral_value, get_y, iterate, scale_value, shift_clip_multi, split, vs
+    core, depth, expect_bits, get_depth, get_neutral_value, get_peak_value, get_y, iterate, scale_thresh, scale_value,
+    shift_clip_multi, split, vs
 )
 
 __all__ = [
@@ -19,7 +20,7 @@ __all__ = [
 def descale_detail_mask(clip: vs.VideoNode, rescaled: vs.VideoNode, threshold: float = 0.05) -> vs.VideoNode:
     mask = expr_func([get_y(clip), get_y(rescaled)], 'x y - abs')
 
-    mask = mask.std.Binarize(threshold)
+    mask = mask.std.Binarize(threshold * get_peak_value(mask))
 
     mask = iterate(mask, core.std.Maximum, 4)
     mask = iterate(mask, core.std.Inflate, 2)
@@ -127,7 +128,7 @@ def credit_mask(
 def simple_detail_mask(
     clip: vs.VideoNode, sigma: float | None = None, rad: int = 3, brz_a: float = 0.025, brz_b: float = 0.045
 ) -> vs.VideoNode:
-    from lvsfunc import range_mask, scale_thresh
+    from lvsfunc import range_mask
 
     brz_a = scale_thresh(brz_a, clip)
     brz_b = scale_thresh(brz_b, clip)
