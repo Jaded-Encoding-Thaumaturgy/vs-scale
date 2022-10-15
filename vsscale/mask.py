@@ -17,13 +17,22 @@ __all__ = [
 ]
 
 
-def descale_detail_mask(clip: vs.VideoNode, rescaled: vs.VideoNode, threshold: float = 0.05) -> vs.VideoNode:
+def descale_detail_mask(
+    clip: vs.VideoNode, rescaled: vs.VideoNode, thr: float = 0.05,
+    inflate: int = 2, xxpand: tuple[int, int] = [4, 0]
+) -> vs.VideoNode:
     mask = expr_func([get_y(clip), get_y(rescaled)], 'x y - abs')
 
-    mask = mask.std.Binarize(threshold * get_peak_value(mask))
+    mask = mask.std.Binarize(thr * get_peak_value(mask))
 
-    mask = iterate(mask, core.std.Maximum, 4)
-    mask = iterate(mask, core.std.Inflate, 2)
+    if xxpand[0]:
+        mask = iterate(mask, core.std.Maximum if xxpand > 0 else core.std.Minimum, xxpand[0])
+
+    if inflate:
+        mask = iterate(mask, core.std.Inflate, inflate)
+
+    if xxpand[1]:
+        mask = iterate(mask, core.std.Maximum if xxpand > 0 else core.std.Minimum, xxpand[1])
 
     return mask.std.Limiter()
 
