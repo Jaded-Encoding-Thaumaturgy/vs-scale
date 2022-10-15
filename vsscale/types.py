@@ -6,7 +6,7 @@ from typing import Any, Callable, NamedTuple, Protocol, Union
 from vsexprtools import expr_func
 from vskernels import Catrom, Kernel, Scaler
 from vsmask.edge import EdgeDetect
-from vstools import ComparatorFunc, CustomIntEnum, CustomStrEnum, VSMapValue, merge_clip_props, vs
+from vstools import ComparatorFunc, CustomIntEnum, CustomStrEnum, VSMapValue, merge_clip_props, vs, Resolution
 
 __all__ = [
     'GenericScaler',
@@ -61,14 +61,6 @@ class GenericScaler(Scaler):
             scaled = self.func(clip, width=width, height=height, **kwargs)
 
         return self.kernel.shift(scaled, shift)
-
-
-class Resolution(NamedTuple):
-    """Tuple representing a resolution."""
-
-    width: int
-
-    height: int
 
 
 class DescaleAttempt(NamedTuple):
