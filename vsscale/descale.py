@@ -9,8 +9,7 @@ from vsaa import Eedi3, Nnedi3, SuperSampler
 from vskernels import Catrom, Kernel, KernelT, Scaler, Spline144
 from vsmask.edge import EdgeDetect
 from vstools import (
-    check_variable, core, depth, get_depth, get_h, get_prop, get_w, get_y, iterate, join, normalize_seq, scale_thresh,
-    split, vs
+    check_variable, core, depth, get_depth, get_h, get_prop, get_w, get_y, join, normalize_seq, split, vs
 )
 
 from .mask import descale_detail_mask
@@ -351,7 +350,7 @@ def mixed_rescale(
     clip: vs.VideoNode, width: None | int = None, height: int = 720,
     kernel: KernelT = Catrom,
     downscaler: Scaler | KernelT = SSIM,
-    credit_mask: CreditMaskT | vs.VideoNode | None = descale_detail_mask, mask_thr: float = 0.05,
+    credit_mask: vs.VideoNode | CreditMaskT | bool = partial(descale_detail_mask, thr=0.05, inflate=4, xxpand=(4, 2)),
     mix_strength: float = 0.25, show_mask: bool | int = False,
     # Default settings set to match insaneAA as closely as reasonably possible
     eedi3: SuperSampler = Eedi3(
@@ -379,11 +378,11 @@ def mixed_rescale(
                             (Default: py:class:`vskernels.Catrom`).
     :param downscaler:      Kernel or custom scaler used to downscale the clip.
                             This can also be the string name of the kernel
-                            (Default: py:func:`lvsfunc.scale.ssim_downsample`).
+                            (Default: py:func:`vsscale.ssim_downsample`).
     :param credit_mask:     Function or mask clip used to mask detail. If ``None``, no masking.
                             Function must accept a clip and a reupscaled clip and return a mask.
-                            (Default: :py:func:`lvsfunc.scale.descale_detail_mask`).
-    :param mask_thr:        Binarization threshold for :py:func:`lvsfunc.scale.descale_detail_mask` (Default: 0.05).
+                            (Default: :py:func:`vsscale.descale_detail_mask`).
+    :param mask_thr:        Binarization threshold for :py:func:`vsscale.descale_detail_mask` (Default: 0.05).
     :param mix_strength:    Merging strength between the descaled and downscaled clip.
                             Stronger values will make the line-art look closer to the downscaled clip.
                             This can get pretty dangerous very quickly if you use a sharp ``downscaler``!
@@ -395,9 +394,6 @@ def mixed_rescale(
     :raises ValueError:     ``mask_thr`` is not between 0.0–1.0.
     """
     assert check_variable(clip, "mixed_rescale")
-
-    if not 0 <= mask_thr <= 1:
-        raise ValueError(f"mixed_rescale: '`mask_thr` must be between 0.0 and 1.0! Not {mask_thr}!'")
 
     width = width or get_w(height, clip.width / clip.height, 1)
 
@@ -416,26 +412,33 @@ def mixed_rescale(
 
     merged = core.akarin.Expr([descaled, downscaled], f'x {mix_strength} * y 1 {mix_strength} - * +')
 
-    if isinstance(credit_mask, vs.VideoNode):
-        detail_mask = depth(credit_mask, get_depth(clip))
-    elif not credit_mask:
-        detail_mask = clip_y.std.BlankClip(length=1) * clip.num_frames
+    if credit_mask:
+        if isinstance(credit_mask, vs.VideoNode):
+            detail_mask = depth(credit_mask, get_depth(clip))
+        elif callable(credit_mask):
+            detail_mask = credit_mask(clip_y, upscaled)
+        elif isinstance(credit_mask, EdgeDetect):
+            detail_mask = EdgeDetect().edgemask(merged)
+
+        detail_mask = detail_mask.std.Limiter()
     else:
-        detail_mask = descale_detail_mask(clip_y, upscaled, threshold=scale_thresh(mask_thr, clip))
-        detail_mask = iterate(detail_mask, core.std.Inflate, 2)
-        detail_mask = iterate(detail_mask, core.std.Maximum, 2).std.Limiter()
+        detail_mask = None
 
     if show_mask == 2:
         return line_mask
     elif show_mask:
-        return detail_mask
+        return detail_mask or core.std.BlankClip(length=clip.num_frames)
 
     double = eedi3.scale(merged, clip.width * 2, clip.height * 2)
     rescaled = SSIM.scale(double, clip.width, clip.height)
 
     rescaled = depth(rescaled, bits)
 
-    masked = rescaled.std.MaskedMerge(clip_y, detail_mask)
+    if detail_mask:
+        masked = rescaled.std.MaskedMerge(clip_y, detail_mask)
+    else:
+        masked = rescaled
+
     masked = clip_y.std.MaskedMerge(masked, line_mask)
 
     if clip.format.num_planes == 1:
