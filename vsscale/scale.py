@@ -190,6 +190,7 @@ def scale_var_clip(
             norm_scaler = scaler(res) if callable(scaler) else scaler
             norm_shift = shift(res) if callable(shift) else shift
             norm_height = height(res) if callable(height) else height
+
             if width is None:
                 norm_width = get_w(norm_height, res.width / res.height)
             else:
