@@ -26,13 +26,13 @@ def descale_detail_mask(
     mask = mask.std.Binarize(thr * get_peak_value(mask))
 
     if xxpand[0]:
-        mask = iterate(mask, core.std.Maximum if xxpand > 0 else core.std.Minimum, xxpand[0])
+        mask = iterate(mask, core.std.Maximum if xxpand[0] > 0 else core.std.Minimum, xxpand[0])
 
     if inflate:
         mask = iterate(mask, core.std.Inflate, inflate)
 
     if xxpand[1]:
-        mask = iterate(mask, core.std.Maximum if xxpand > 0 else core.std.Minimum, xxpand[1])
+        mask = iterate(mask, core.std.Maximum if xxpand[1] > 0 else core.std.Minimum, xxpand[1])
 
     return mask.std.Limiter()
 
