@@ -161,7 +161,7 @@ class FSRCNNXShader(PlaceboShaderBase):
 
     @dataclass
     class x16(PlaceboShaderBase):
-        shader_file = ShaderFile.FSRCNNX_x18
+        shader_file = ShaderFile.FSRCNNX_x16
 
     @dataclass
     class x56(PlaceboShaderBase):
