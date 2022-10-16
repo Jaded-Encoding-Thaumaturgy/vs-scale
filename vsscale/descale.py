@@ -418,7 +418,7 @@ def mixed_rescale(
         elif callable(credit_mask):
             detail_mask = credit_mask(clip_y, upscaled)
         elif isinstance(credit_mask, EdgeDetect):
-            detail_mask = EdgeDetect().edgemask(merged)
+            detail_mask = credit_mask.edgemask(merged)
 
         detail_mask = detail_mask.std.Limiter()
     else:
