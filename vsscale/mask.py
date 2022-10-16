@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from vsexprtools import ExprOp, combine, expr_func
+from vsexprtools import ExprOp, combine, norm_expr
 from vskernels import Catrom
 from vsmask.edge import PrewittTCanny
 from vsmask.util import XxpandMode, expand
@@ -21,7 +21,7 @@ def descale_detail_mask(
     clip: vs.VideoNode, rescaled: vs.VideoNode, thr: float = 0.05,
     inflate: int = 2, xxpand: tuple[int, int] = [4, 0]
 ) -> vs.VideoNode:
-    mask = expr_func([get_y(clip), get_y(rescaled)], 'x y - abs')
+    mask = norm_expr([get_y(clip), get_y(rescaled)], 'x y - abs')
 
     mask = mask.std.Binarize(thr * get_peak_value(mask))
 
@@ -50,18 +50,17 @@ def descale_error_mask(
     bit_depth = get_depth(clip)
     neutral = get_neutral_value(clip)
 
-    error = expr_func([y, rescaled], 'x y - abs')
+    error = norm_expr([y, rescaled], 'x y - abs')
 
     if bwbias > 1 and chroma:
-        chroma_abs = expr_func(chroma, f'x {neutral} - abs y {neutral} - abs max')
+        chroma_abs = norm_expr(chroma, f'x {neutral} - abs y {neutral} - abs max')
         chroma_abs = Catrom().scale(chroma_abs, y.width, y.height)
 
         tv_low, tv_high = scale_value(16, 8, bit_depth), scale_value(235, 8, bit_depth)
-        bias = expr_func([y, chroma_abs], f'x {tv_high} >= x {tv_low} <= or y 0 = and {bwbias} 1 ?')
-
+        bias = norm_expr([y, chroma_abs], f'x {tv_high} >= x {tv_low} <= or y 0 = and {bwbias} 1 ?')
         bias = expand(bias, 2)
 
-        error = expr_func([error, bias], 'x y *')
+        error = norm_expr([error, bias], 'x y *')
 
     if isinstance(expands, int):
         exp1 = exp2 = exp3 = expands
