@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+from functools import partial
+
 from vsexprtools import ExprOp, combine, norm_expr
 from vskernels import Catrom
-from vsmask.edge import PrewittTCanny
+from vsmask.edge import EdgeDetect, Prewitt, PrewittTCanny
 from vsmask.util import XxpandMode, expand
 from vsrgtools import box_blur, gauss_blur, removegrain
+from vsrgtools.util import wmean_matrix
 from vstools import (
-    core, depth, expect_bits, get_depth, get_neutral_value, get_peak_value, get_y, iterate, scale_thresh, scale_value,
-    shift_clip_multi, split, vs
+    check_variable, core, depth, expect_bits, get_depth, get_neutral_value, get_peak_value, get_y, iterate,
+    scale_thresh, scale_value, shift_clip_multi, split, vs
 )
 
 __all__ = [
     'descale_detail_mask', 'descale_error_mask',
     'simple_detail_mask', 'multi_detail_mask',
-    'credit_mask'
+    'credit_mask',
+    'ringing_mask'
 ]
 
 
@@ -163,3 +167,40 @@ def multi_detail_mask(clip: vs.VideoNode, thr: float = 0.015) -> vs.VideoNode:
             iterate(general_mask, core.std.Maximum, 3).std.Maximum().std.Inflate()
         ], ExprOp.MIN), general_mask.std.Maximum()
     ], ExprOp.MIN)
+
+
+def ringing_mask(
+    clip: vs.VideoNode,
+    rad: int = 2, brz: float = 0.35,
+    thmi: float = 0.315, thma: float = 0.5,
+    thlimi: float = 0.195, thlima: float = 0.392,
+    credit_mask: vs.VideoNode | EdgeDetect = Prewitt()
+) -> vs.VideoNode:
+    assert check_variable(clip, ringing_mask)
+
+    smax = get_peak_value(clip)
+
+    thmi, thma, thlimi, thlima = (
+        scale_thresh(t, clip) for t in [thmi, thma, thlimi, thlima]
+    )
+
+    if isinstance(credit_mask, vs.VideoNode):
+        edgemask = depth(credit_mask, get_depth(clip))
+    elif isinstance(credit_mask, EdgeDetect):
+        edgemask = credit_mask.edgemask(get_y(clip))
+
+    edgemask = get_y(edgemask).std.Limiter()
+
+    light = norm_expr(edgemask, f'x {thlimi} - {thma - thmi} / {smax} *')
+    shrink = iterate(light, core.std.Maximum, rad)
+    shrink = shrink.std.Binarize(scale_thresh(brz, clip))
+    shrink = iterate(shrink, core.std.Minimum, rad)
+    shrink = iterate(shrink, partial(core.std.Convolution, matrix=wmean_matrix), 2)
+
+    strong = norm_expr(edgemask, f'x {thmi} - {thlima - thlimi} / {smax} *')
+    expand = iterate(strong, core.std.Maximum, rad)
+
+    mask = norm_expr([expand, strong, shrink], 'x y z max - 2 *')
+    mask = mask.std.Convolution(wmean_matrix, wmean_matrix)
+
+    return norm_expr(mask, 'x 2 *').std.Limiter()
