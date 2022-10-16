@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from vskernels import Catrom, Kernel, Scaler
 from vstools import (
-    CustomRuntimeError, FileWasNotFoundError, core, depth, expect_bits, get_user_data_dir, get_video_format, get_y,
+    CustomRuntimeError, FileWasNotFoundError, core, expect_bits, get_user_data_dir, get_video_format, get_y,
     inject_self, join, vs
 )
 
@@ -58,7 +58,7 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
-        clip, bits = expect_bits(clip, 16)
+        clip, _ = expect_bits(clip, 16)
 
         fmt = get_video_format(clip)
 
@@ -112,7 +112,7 @@ class PlaceboShaderBase(PlaceboShaderMeta):
             else:
                 clip = self.kernel.shift(clip, shift)
 
-        return depth(clip, bits)
+        return self.kernel.resample(clip, fmt)
 
 
 @dataclass
