@@ -25,7 +25,7 @@ __all__ = [
 
 
 class PlaceboShaderMeta(GenericScaler):
-    shader_file: str | Path
+    shader_file: str | Path | ShaderFile
 
 
 @dataclass
@@ -76,7 +76,7 @@ class PlaceboShaderBase(PlaceboShaderMeta):
                 clip = join(clip, blank, blank)
 
         kwargs |= {
-            'shader': str(self.shader_file),
+            'shader': self.shader_file.path if isinstance(self.shader_file, ShaderFile) else str(self.shader_file),
             'chroma_loc': self.chroma_loc, 'matrix': self.matrix,
             'trc': self.trc, 'linearize': self.linearize,
             'sigmoidize': self.sigmoidize, 'sigmoid_center': self.sigmoid_center, 'sigmoid_slope': self.sigmoid_slope,
