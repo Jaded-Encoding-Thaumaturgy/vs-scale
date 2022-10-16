@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, NamedTuple, Protocol, Union
+from typing import Callable, NamedTuple, Union
 
 from vsexprtools import expr_func
-from vskernels import Catrom, Kernel, Scaler
+from vskernels import Kernel
 from vsmask.edge import EdgeDetect
 from vstools import ComparatorFunc, CustomIntEnum, CustomStrEnum, VSMapValue, merge_clip_props, vs, Resolution
 
 __all__ = [
-    'GenericScaler',
     'CreditMaskT', 'Resolution', 'DescaleAttempt',
     'DescaleMode', 'DescaleResult', 'PlaneStatsKind',
     '_DescaleTypeGuards'
@@ -17,50 +16,6 @@ __all__ = [
 
 
 CreditMaskT = Union[vs.VideoNode, Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode], EdgeDetect]
-
-
-class _GeneriScaleNoShift(Protocol):
-    def __call__(self, clip: vs.VideoNode, width: int, height: int, *args: Any, **kwds: Any) -> vs.VideoNode:
-        ...
-
-
-class _GeneriScaleWithShift(Protocol):
-    def __call__(
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
-        *args: Any, **kwds: Any
-    ) -> vs.VideoNode:
-        ...
-
-
-class GenericScaler(Scaler):
-    kernel: type[Kernel] | Kernel = field(default_factory=lambda: Catrom(), kw_only=True)
-
-    def __init__(
-        self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | Callable[..., vs.VideoNode], **kwargs: Any
-    ) -> None:
-        self.func = func
-        self.kwargs = kwargs
-
-    def scale(  # type: ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
-    ) -> vs.VideoNode:
-        kwargs = self.kwargs | kwargs
-
-        if shift != (0, 0):
-            try:
-                return self.func(clip, width, height, shift, **kwargs)
-            except BaseException:
-                try:
-                    return self.func(clip, width=width, height=height, shift=shift, **kwargs)
-                except BaseException:
-                    pass
-
-        try:
-            scaled = self.func(clip, width, height, **kwargs)
-        except BaseException:
-            scaled = self.func(clip, width=width, height=height, **kwargs)
-
-        return self.kernel.shift(scaled, shift)
 
 
 class DescaleAttempt(NamedTuple):
