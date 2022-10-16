@@ -201,6 +201,6 @@ def ringing_mask(
     expand = iterate(strong, core.std.Maximum, rad)
 
     mask = norm_expr([expand, strong, shrink], 'x y z max - 2 *')
-    mask = mask.std.Convolution(wmean_matrix, wmean_matrix)
+    mask = mask.std.Convolution(wmean_matrix)
 
     return norm_expr(mask, 'x 2 *').std.Limiter()
