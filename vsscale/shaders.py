@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from vskernels import Catrom, Kernel, Scaler
-from vstools import FileWasNotFoundError, core, depth, expect_bits, get_user_data_dir, get_video_format, get_y, join, vs
+from vstools import (
+    CustomRuntimeError, FileWasNotFoundError, core, depth, expect_bits, get_user_data_dir, get_video_format, get_y,
+    inject_self, join, vs
+)
 
 from .base import ShaderFileBase, ShaderFileCustom
 from .helpers import GenericScaler
@@ -46,6 +49,10 @@ class PlaceboShaderBase(PlaceboShaderMeta):
 
     scaler: type[Scaler] | Scaler = field(default=Catrom, kw_only=True)
     shifter: type[Kernel] | Kernel | None = field(default=None, kw_only=True)
+
+    def __post_init__(self) -> None:
+        if not hasattr(self, 'shader_file'):
+            raise CustomRuntimeError('You must specify a "shader_file"!', self.__class__)
 
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
