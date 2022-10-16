@@ -54,6 +54,7 @@ class PlaceboShaderBase(PlaceboShaderMeta):
         if not hasattr(self, 'shader_file'):
             raise CustomRuntimeError('You must specify a "shader_file"!', self.__class__)
 
+    @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:

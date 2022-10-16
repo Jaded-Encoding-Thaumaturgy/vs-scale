@@ -7,7 +7,9 @@ from vsaa import Nnedi3
 from vsexprtools import ExprOp, combine, norm_expr
 from vskernels import Scaler
 from vsrgtools import LimitFilterMode, RepairMode, limit_filter, median_clips, repair, unsharp_masked
-from vstools import EXPR_VARS, ColorRange, CustomIndexError, CustomOverflowError, P, check_ref_clip, scale_8bit, vs
+from vstools import (
+    EXPR_VARS, ColorRange, CustomIndexError, CustomOverflowError, P, check_ref_clip, inject_self, scale_8bit, vs
+)
 
 from .helpers import GenericScaler
 from .mask import ringing_mask
@@ -69,6 +71,7 @@ class MergedFSRCNNX(GenericScaler):
         if self.undershoot is None:
             self.undershoot = self.overshoot
 
+    @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         *, ref: vs.VideoNode | None = None, **kwargs: Any
@@ -145,6 +148,7 @@ class UnsharpedFSRCNNX(GenericScaler):
         self.args = args
         self.kwargs = kwargs
 
+    @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         *, ref: vs.VideoNode | None = None, **kwargs: Any
