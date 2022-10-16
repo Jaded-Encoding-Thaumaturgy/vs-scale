@@ -133,7 +133,9 @@ class MergedFSRCNNX(GenericScaler):
 class UnsharpedFSRCNNX(GenericScaler):
     def __init__(
         self,
-        unsharp_func: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode] = unsharp_masked,
+        unsharp_func: Callable[
+            Concatenate[vs.VideoNode, P], vs.VideoNode
+        ] = partial(unsharp_masked, radius=2, strength=65),
         merge_mode: LimitFilterMode | bool = True,
         reference: type[Scaler] | Scaler | vs.VideoNode = Nnedi3(0, opencl=None),
         fsrcnnx_shader: FSRCNNXShaderT = FSRCNNXShader.x56,
