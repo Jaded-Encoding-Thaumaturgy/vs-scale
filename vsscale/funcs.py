@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Callable, Concatenate, Literal
 
 from vsaa import Nnedi3
@@ -74,21 +75,21 @@ class MergedFSRCNNX(GenericScaler):
     @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
-        *, ref: vs.VideoNode | None = None, **kwargs: Any
+        *, smooth: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
         assert (self.undershoot or self.undershoot == 0) and (self.overshoot or self.overshoot == 0)
 
         fsrcnnx = self.fsrcnnx_shader.scale(clip, width, height, shift, **kwargs)
 
-        if not ref and isinstance(self.reference, vs.VideoNode):
-            ref = self.reference
+        if isinstance(self.reference, vs.VideoNode):
+            smooth = self.reference
 
-        if ref and shift != (0, 0):
-            ref = self.kernel.shift(ref, shift)
+            if shift != (0, 0):
+                smooth = self.kernel.shift(smooth, shift)
+        else:
+            smooth = self.reference.scale(clip, width, height, shift)
 
-        smooth = ref or self.scaler.scale(clip, width, height, shift)
-
-        check_ref_clip(clip, ref)
+        check_ref_clip(fsrcnnx, smooth)
 
         range_out = ColorRange.from_video(clip, False) if self.range_out is None else self.range_out
 
@@ -151,19 +152,19 @@ class UnsharpedFSRCNNX(GenericScaler):
     @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
-        *, ref: vs.VideoNode | None = None, **kwargs: Any
+        *, smooth: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
         fsrcnnx = self.fsrcnnx_shader.scale(clip, width, height, shift, **kwargs)
 
-        if not ref and isinstance(self.reference, vs.VideoNode):
-            ref = self.reference
+        if isinstance(self.reference, vs.VideoNode):
+            smooth = self.reference
 
-        if ref and shift != (0, 0):
-            ref = self.kernel.shift(ref, shift)
+            if shift != (0, 0):
+                smooth = self.kernel.shift(smooth, shift)
+        else:
+            smooth = self.reference.scale(clip, width, height, shift)
 
-        smooth = ref or self.scaler.scale(clip, width, height, shift)
-
-        check_ref_clip(clip, ref)
+        check_ref_clip(fsrcnnx, smooth)
 
         smooth_sharp = self.unsharp_func(smooth, *self.args, **self.kwargs)
 
