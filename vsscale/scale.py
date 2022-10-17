@@ -185,7 +185,7 @@ class DLSIR(GenericScaler):
         output = clip
         matrix = None
 
-        if clip.width > width or height > clip.width:
+        if width > clip.width or height > clip.width:
             if not matrix:
                 matrix = self.matrix or Matrix.from_param(matrix, self.__class__) or Matrix.from_video(clip, False)
 
