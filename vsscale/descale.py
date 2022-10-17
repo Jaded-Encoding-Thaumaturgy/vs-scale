@@ -12,8 +12,9 @@ from vstools import (
     check_variable, core, depth, get_depth, get_h, get_prop, get_w, get_y, join, normalize_seq, split, vs
 )
 
+from .helpers import scale_var_clip
 from .mask import descale_detail_mask
-from .scale import SSIM, scale_var_clip
+from .scale import SSIM
 from .types import CreditMaskT, DescaleAttempt, DescaleMode, DescaleResult, PlaneStatsKind, _DescaleTypeGuards
 
 __all__ = [
