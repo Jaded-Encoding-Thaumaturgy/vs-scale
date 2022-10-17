@@ -194,7 +194,7 @@ class DLSIR(GenericScaler):
 
             max_scale = max(ceil(width / clip.width), ceil(height / clip.height))
 
-            output = clip.akarin.DLISR(max_scale, self.device_id)
+            output = output.akarin.DLISR(max_scale, self.device_id)
 
         if (clip.width, clip.height) != (width, height):
             output = self.scaler.scale(output, width, height, shift)
