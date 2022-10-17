@@ -2,18 +2,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
+from math import ceil
 from typing import Any
 
 from vsexprtools import aka_expr_available, expr_func
-from vskernels import Bilinear, Catrom, Kernel, KernelT, Scaler
+from vskernels import Bilinear, Catrom, Kernel, KernelT, Scaler, SetsuCubic
 from vsrgtools import box_blur, gauss_blur
-from vstools import Matrix, PlanesT, Transfer, VSFunction, core, depth, fallback, get_depth, get_w, inject_self, vs
+from vstools import (
+    Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_variable, core, depth, fallback, get_depth, get_w,
+    inject_self, vs
+)
 
 from .gamma import gamma2linear, linear2gamma
+from .helpers import GenericScaler
 
 __all__ = [
-    'DPID', 'SSIM',
-    'ssim_downsample'
+    'DPID',
+    'SSIM', 'ssim_downsample',
+    'DLSIR'
 ]
 
 
@@ -160,3 +166,44 @@ def ssim_downsample(
         d = linear2gamma(d, curve, sigmoid=sigmoid)
 
     return depth(d, bits)
+
+
+@dataclass
+class DLSIR(GenericScaler):
+    scaler: type[Scaler] | Scaler = DPID(0.5, SetsuCubic)
+    matrix: MatrixT | None = None
+
+    device_id: int | None = None
+
+    @inject_self
+    def scale(  # type: ignore
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
+        *, matrix: MatrixT | None = None, **kwargs: Any
+    ) -> vs.VideoNode:
+        assert check_variable(clip, self.__class__)
+
+        output = clip
+        matrix = None
+
+        if clip.width > width or height > clip.width:
+            if not matrix:
+                matrix = self.matrix or Matrix.from_param(matrix, self.__class__) or Matrix.from_video(clip, False)
+
+            output = self.kernel.resample(output, vs.RGBS, Matrix.RGB, matrix)
+            output = output.std.Limiter()
+
+            max_scale = max(ceil(width / clip.width), ceil(height / clip.height))
+
+            output = clip.akarin.DLISR(max_scale, self.device_id)
+
+        if (clip.width, clip.height) != (width, height):
+            output = self.scaler.scale(output, width, height, shift)
+        elif shift != (0, 0):
+            output = self.kernel.shift(output, shift)
+
+        assert check_variable(output, self.__class__)
+
+        if output.format.id == clip.format.id:
+            return output
+
+        return self.kernel.resample(output, clip, matrix)
