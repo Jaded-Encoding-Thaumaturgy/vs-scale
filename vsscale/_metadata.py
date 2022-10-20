@@ -1,6 +1,6 @@
 """VapourSynth (de)scaling functions"""
 
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 
 __author__ = 'Setsugen no ao <setsugen@setsugen.dev>'
 __maintainer__ = __author__
