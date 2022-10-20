@@ -19,7 +19,7 @@ from .helpers import GenericScaler
 __all__ = [
     'DPID',
     'SSIM', 'ssim_downsample',
-    'DLSIR'
+    'DLISR'
 ]
 
 
@@ -169,7 +169,7 @@ def ssim_downsample(
 
 
 @dataclass
-class DLSIR(GenericScaler):
+class DLISR(GenericScaler):
     scaler: type[Scaler] | Scaler = DPID(0.5, SetsuCubic)
     matrix: MatrixT | None = None
 
