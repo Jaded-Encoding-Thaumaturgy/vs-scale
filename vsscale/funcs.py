@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, Concatenate, Literal
+from typing import Any, Callable, Concatenate, Literal, cast
 
 from vsaa import Nnedi3
 from vsexprtools import ExprOp, combine, norm_expr
@@ -24,18 +24,58 @@ __all__ = [
 
 
 class MergeScalers(GenericScaler):
-    def __init__(self, *scalers: tuple[type[Scaler] | Scaler, float]) -> None:
+    def __init__(self, *scalers: type[Scaler] | Scaler | tuple[type[Scaler] | Scaler, float | None]) -> None:
         if (l := len(scalers)) < 2:
             raise CustomIndexError(f'Not enough scalers passed! ({l})', self.__class__)
         elif len(scalers) > len(EXPR_VARS):
             raise CustomIndexError(f'Too many scalers passed! ({l})')
 
-        self.scalers = scalers
+        if any(isinstance(s, tuple) for s in scalers):
+            norm_scalers = [
+                scaler if isinstance(scaler, tuple) else (scaler, None) for scaler in scalers
+            ]
+
+            curr_sum = 0.0
+            n_auto_weight = 0
+
+            for i, (_, weight) in enumerate(norm_scalers):
+                if weight is None:
+                    n_auto_weight += 1
+                elif weight <= 0.0:
+                    raise CustomOverflowError(
+                        f'Weights have to be positive, >= 0.0! (Scaler index: ({i})', self.__class__
+                    )
+                else:
+                    curr_sum += weight
+
+            if curr_sum >= 1.0:
+                raise CustomOverflowError(
+                    'Sum of the weights should be less than 1.0!', self.__class__
+                )
+
+            if n_auto_weight:
+                a_wgh = (1.0 - curr_sum) / n_auto_weight
+
+                norm_scalers = [
+                    (scaler, a_wgh if weight is None else weight)
+                    for scaler, weight in norm_scalers
+                ]
+        else:
+            weight = 1.0 / len(scalers)
+
+            norm_scalers = [(scaler, weight) for scaler in scalers]
+
+        self.scalers = [
+            (
+                Scaler.ensure_obj(scaler, self.__class__),
+                float(weight if weight else 0)
+            ) for scaler, weight in norm_scalers
+        ]
 
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
-        scalers, weights = zip(*self.scalers)
+        scalers, weights = cast(tuple[list[Scaler], list[float]], zip(*self.scalers))
 
         return combine(
             [scaler.scale(clip, width, height, shift, **kwargs) for scaler in scalers],
