@@ -27,7 +27,7 @@ def _sigmoid_x(sigmoid: bool, cont: float, thr: float) -> tuple[str, str, str]:
     return header, x0, x1
 
 
-def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer, sigmoid) -> vs.VideoNode:
+def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer, sigmoid: bool) -> vs.VideoNode:
     linear = norm_expr(clip, f'{header} {expr} {ExprOp.clamp(0, 1)}', planes=0 if sigmoid else None)
 
     return linear.std.SetFrameProps(_Transfer=curve.value)
