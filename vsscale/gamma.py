@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from vsexprtools import ExprOp, aka_expr_available, expr_func
+from vsexprtools import ExprOp, aka_expr_available, norm_expr
 from vstools import MatrixCoefficients, Transfer, get_depth, vs
 
 __all__ = [
@@ -27,8 +27,8 @@ def _sigmoid_x(sigmoid: bool, cont: float, thr: float) -> tuple[str, str, str]:
     return header, x0, x1
 
 
-def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer) -> vs.VideoNode:
-    linear = expr_func(clip, f'{header} {expr} {ExprOp.clamp(0, 1)}')
+def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer, sigmoid) -> vs.VideoNode:
+    linear = norm_expr(clip, f'{header} {expr} {ExprOp.clamp(0, 1)}', planes=0 if sigmoid else None)
 
     return linear.std.SetFrameProps(_Transfer=curve.value)
 
@@ -53,7 +53,7 @@ def gamma2linear(
     if sigmoid:
         expr = f'{thr} 1 {expr} {x1} {x0} - * {x0} + {epsilon} max / 1 - {epsilon} max log {cont} / -'
 
-    return _clamp_converted(clip, header, expr, Transfer.LINEAR)
+    return _clamp_converted(clip, header, expr, Transfer.LINEAR, sigmoid)
 
 
 def linear2gamma(
@@ -81,4 +81,4 @@ def linear2gamma(
 
     expr = f'{lin} {c.k0} {c.phi} / <= {lin} {c.phi} * {lin} 1 {c.gamma} / pow {c.alpha} 1 + * {c.alpha} - ?'
 
-    return _clamp_converted(clip, header, expr, curve)
+    return _clamp_converted(clip, header, expr, curve, sigmoid)
