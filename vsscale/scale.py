@@ -10,7 +10,7 @@ from vskernels import Bilinear, Catrom, Scaler, ScalerT, SetsuCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_variable, core, depth, fallback, get_depth, get_w,
-    inject_self, vs
+    inject_self, vs, CustomValueError, check_ref_clip
 )
 
 from .gamma import gamma2linear, linear2gamma
@@ -35,10 +35,7 @@ class DPID(Scaler):
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
         if isinstance(self.ref, vs.VideoNode):
-            assert clip.format and self.ref.format
-            if clip.format != self.ref.format:
-                raise ValueError('DPID.scale: ref clip must be the same format as clip!')
-
+            check_ref_clip(clip, self.ref)
             ref = self.ref
         else:
             ref = clip
@@ -125,7 +122,7 @@ def ssim_downsample(
     scaler = Scaler.ensure_obj(scaler, ssim_downsample)
 
     if isinstance(scaler, SSIM):
-        raise ValueError("SSIM: you can't have SSIM as a scaler for itself!")
+        raise CustomValueError("You can't have SSIM as a scaler for itself!", SSIM)
 
     if callable(smooth):
         filter_func = smooth

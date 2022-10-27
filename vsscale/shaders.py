@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from vskernels import Catrom, Kernel, Scaler, ScalerT, KernelT
 from vstools import (
     CustomRuntimeError, FileWasNotFoundError, core, expect_bits, get_user_data_dir, get_video_format, get_y,
-    inject_self, join, vs
+    inject_self, join, vs, CustomNotImplementedError
 )
 
 from .base import ShaderFileBase, ShaderFileCustom
@@ -136,7 +136,7 @@ class ShaderFile(ShaderFileBase):
 
     def __call__(self: ShaderFileCustom, file_name: str | Path) -> Path:  # type: ignore
         if self is not ShaderFile.CUSTOM:
-            raise NotImplementedError
+            raise CustomNotImplementedError
 
         in_cwd = Path.cwd() / file_name
 
@@ -158,7 +158,7 @@ class ShaderFile(ShaderFileBase):
     @cached_property
     def path(self) -> Path:
         if self is ShaderFile.CUSTOM:
-            raise NotImplementedError
+            raise CustomNotImplementedError
 
         return Path(__file__).parent / 'shaders' / self.value
 

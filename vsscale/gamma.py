@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from vsexprtools import ExprOp, aka_expr_available, norm_expr
-from vstools import MatrixCoefficients, Transfer, get_depth, vs
+from vstools import MatrixCoefficients, Transfer, get_depth, vs, CustomValueError
 
 __all__ = [
     'gamma2linear', 'linear2gamma'
@@ -42,7 +42,7 @@ def gamma2linear(
     assert clip.format
 
     if get_depth(clip) != 32 and clip.format.sample_type != vs.FLOAT:
-        raise ValueError('gamma2linear: Your clip must be 32bit float!')
+        raise CustomValueError('Your clip must be 32bit float!', gamma2linear)
 
     c = MatrixCoefficients.from_transfer(curve)
 
@@ -64,7 +64,7 @@ def linear2gamma(
     assert clip.format
 
     if get_depth(clip) != 32 and clip.format.sample_type != vs.FLOAT:
-        raise ValueError('linear2gamma: Your clip must be 32bit float!')
+        raise CustomValueError('Your clip must be 32bit float!', linear2gamma)
 
     c = MatrixCoefficients.from_transfer(curve)
 

@@ -9,7 +9,8 @@ from vsaa import Eedi3, Nnedi3, SuperSampler
 from vskernels import Catrom, Kernel, KernelT, Scaler, Spline144, ScalerT
 from vsmask.edge import EdgeDetect
 from vstools import (
-    check_variable, core, depth, get_depth, get_h, get_prop, get_w, get_y, join, normalize_seq, split, vs
+    check_variable, core, depth, get_depth, get_h, get_prop, get_w, get_y, join, normalize_seq, split, vs,
+    CustomValueError
 )
 
 from .helpers import scale_var_clip
@@ -82,9 +83,10 @@ def get_select_descale(
         }
 
         if len(group_by_kernel) < 2:
-            raise ValueError(
-                'get_select_descale: With KernelDiff mode you need to specify at least two kernels!\n'
-                '(First will be the main kernel, others will be compared to it)'
+            raise CustomValueError(
+                'With KernelDiff mode you need to specify at least two kernels!\n'
+                '(First will be the main kernel, others will be compared to it)',
+                get_select_descale
             )
 
         kernel_indices = {
@@ -129,7 +131,7 @@ def get_select_descale(
             return other_clip
 
     else:
-        raise ValueError('get_select_descale: incorrect descale mode specified!')
+        raise CustomValueError('Incorrect descale mode specified!', get_select_descale)
 
     return _select_descale, diff_clips
 
@@ -262,10 +264,10 @@ def descale(
     ]
 
     if len(widths) != len(heights):
-        raise ValueError("descale: Number of heights and widths specified mismatch!")
+        raise CustomValueError('Number of heights and widths specified mismatch!', descale)
 
     if not norm_kernels:
-        raise ValueError("descale: You must specify at least one kernel!")
+        raise CustomValueError('You must specify at least one kernel!', descale)
 
     work_clip, *chroma = split(clip)
 
@@ -390,8 +392,6 @@ def mixed_rescale(
     :param eedi3:           Eedi3 instance that will be used for supersampling.
 
     :return:                Rescaled clip with a downscaled clip merged with it and credits masked.
-
-    :raises ValueError:     ``mask_thr`` is not between 0.0–1.0.
     """
     assert check_variable(clip, mixed_rescale)
 

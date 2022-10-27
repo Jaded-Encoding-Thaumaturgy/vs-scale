@@ -28,7 +28,7 @@ class MergeScalers(GenericScaler):
         if (l := len(scalers)) < 2:
             raise CustomIndexError(f'Not enough scalers passed! ({l})', self.__class__)
         elif len(scalers) > len(EXPR_VARS):
-            raise CustomIndexError(f'Too many scalers passed! ({l})')
+            raise CustomIndexError(f'Too many scalers passed! ({l})', self.__class__)
 
         if any(isinstance(s, tuple) for s in scalers):
             norm_scalers = [

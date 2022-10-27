@@ -6,7 +6,10 @@ from typing import Callable, NamedTuple, Union
 from vsexprtools import expr_func
 from vskernels import Kernel
 from vsmask.edge import EdgeDetect
-from vstools import ComparatorFunc, CustomIntEnum, CustomStrEnum, VSMapValue, merge_clip_props, vs, Resolution
+from vstools import (
+    ComparatorFunc, CustomIntEnum, CustomStrEnum, VSMapValue, merge_clip_props, vs, Resolution,
+    CustomNotImplementedError
+)
 
 __all__ = [
     'CreditMaskT', 'Resolution', 'DescaleAttempt',
@@ -125,7 +128,7 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
         elif self.is_kernel_diff:
             return 'PlaneStatsKDiff'
 
-        raise RuntimeError
+        raise CustomNotImplementedError
 
     @property
     def res_op(self) -> ComparatorFunc:
@@ -135,7 +138,7 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
         if self in {self.PlaneDiffMin, self.KernelDiffMin}:
             return min
 
-        raise RuntimeError
+        raise CustomNotImplementedError
 
     @property
     def diff_op(self) -> ComparatorFunc:
@@ -145,7 +148,7 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
         if self in {self.KernelDiffMax, self.PlaneDiffMax}:
             return max
 
-        raise RuntimeError
+        raise CustomNotImplementedError
 
     @property
     def is_average(self) -> bool:
