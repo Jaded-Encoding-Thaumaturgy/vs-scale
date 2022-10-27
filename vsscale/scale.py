@@ -6,7 +6,7 @@ from math import ceil
 from typing import Any
 
 from vsexprtools import aka_expr_available, expr_func
-from vskernels import Bilinear, Catrom, Kernel, KernelT, Scaler, SetsuCubic
+from vskernels import Bilinear, Catrom, Kernel, Scaler, ScalerT, SetsuCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_variable, core, depth, fallback, get_depth, get_w,
@@ -26,8 +26,8 @@ __all__ = [
 @dataclass
 class DPID(Scaler):
     sigma: float = 0.1
-    ref: vs.VideoNode | Scaler | None = None
-    scaler: Scaler = Bilinear()
+    ref: vs.VideoNode | ScalerT | None = None
+    scaler: ScalerT = Bilinear
     planes: PlanesT = None
 
     @inject_self
@@ -62,7 +62,7 @@ class SSIM(Scaler):
     curve: Transfer | bool = False
     sigmoid: bool = False
     epsilon: float = 1e-6
-    scaler: Scaler = Catrom()
+    scaler: ScalerT = Catrom
 
     @inject_self
     def scale(  # type: ignore[override]
@@ -79,7 +79,7 @@ class SSIM(Scaler):
 def ssim_downsample(
     clip: vs.VideoNode, width: int | None = None, height: int = 720,
     smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
-    scaler: Scaler | KernelT = Catrom,
+    scaler: ScalerT = Catrom,
     curve: Transfer | bool = False, sigmoid: bool = False,
     shift: tuple[float, float] = (0, 0), epsilon: float = 1e-6
 ) -> vs.VideoNode:
@@ -170,7 +170,7 @@ def ssim_downsample(
 
 @dataclass
 class DLISR(GenericScaler):
-    scaler: type[Scaler] | Scaler = DPID(0.5, SetsuCubic)
+    scaler: ScalerT = DPID(0.5, SetsuCubic)
     matrix: MatrixT | None = None
 
     device_id: int | None = None

@@ -6,7 +6,7 @@ from typing import Any, Callable, Concatenate, Literal, cast
 
 from vsaa import Nnedi3
 from vsexprtools import ExprOp, combine, norm_expr
-from vskernels import Scaler
+from vskernels import Scaler, ScalerT
 from vsrgtools import LimitFilterMode, RepairMode, limit_filter, median_clips, repair, unsharp_masked
 from vstools import (
     EXPR_VARS, ColorRange, CustomIndexError, CustomOverflowError, P, check_ref_clip, inject_self, scale_8bit, vs
@@ -24,7 +24,7 @@ __all__ = [
 
 
 class MergeScalers(GenericScaler):
-    def __init__(self, *scalers: type[Scaler] | Scaler | tuple[type[Scaler] | Scaler, float | None]) -> None:
+    def __init__(self, *scalers: ScalerT | tuple[ScalerT, float | None]) -> None:
         if (l := len(scalers)) < 2:
             raise CustomIndexError(f'Not enough scalers passed! ({l})', self.__class__)
         elif len(scalers) > len(EXPR_VARS):
@@ -95,7 +95,7 @@ class MergedFSRCNNX(GenericScaler):
     operator: Literal[ExprOp.MAX, ExprOp.MIN] | None = ExprOp.MIN
     masked: bool = True
 
-    reference: type[Scaler] | Scaler | vs.VideoNode = Nnedi3(0, opencl=None)
+    reference: ScalerT | vs.VideoNode = Nnedi3(0, opencl=None)
 
     range_out: ColorRange | None = None
 
@@ -177,7 +177,7 @@ class UnsharpedFSRCNNX(GenericScaler):
             Concatenate[vs.VideoNode, P], vs.VideoNode
         ] = partial(unsharp_masked, radius=2, strength=65),
         merge_mode: LimitFilterMode | bool = True,
-        reference: type[Scaler] | Scaler | vs.VideoNode = Nnedi3(0, opencl=None),
+        reference: ScalerT | vs.VideoNode = Nnedi3(0, opencl=None),
         fsrcnnx_shader: FSRCNNXShaderT = FSRCNNXShader.x56,
         *args: P.args, **kwargs: P.kwargs
     ) -> None:

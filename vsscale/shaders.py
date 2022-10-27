@@ -6,7 +6,7 @@ from math import ceil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from vskernels import Catrom, Kernel, Scaler
+from vskernels import Catrom, Kernel, Scaler, ScalerT, KernelT
 from vstools import (
     CustomRuntimeError, FileWasNotFoundError, core, expect_bits, get_user_data_dir, get_video_format, get_y,
     inject_self, join, vs
@@ -47,8 +47,8 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     param1: float | None = field(default=None, kw_only=True)
     param2: float | None = field(default=None, kw_only=True)
 
-    scaler: type[Scaler] | Scaler = field(default=Catrom, kw_only=True)
-    shifter: type[Kernel] | Kernel | None = field(default=None, kw_only=True)
+    scaler: ScalerT = field(default=Catrom, kw_only=True)
+    shifter: KernelT | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not hasattr(self, 'shader_file'):

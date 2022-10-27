@@ -5,7 +5,7 @@ from functools import partial
 from typing import Any, Callable, Protocol
 
 from vsaa import Nnedi3
-from vskernels import Catrom, Kernel, Scaler
+from vskernels import Catrom, KernelT, Scaler, Kernel
 from vstools import F_VD, get_w, vs
 
 from .types import Resolution
@@ -31,7 +31,7 @@ class _GeneriScaleWithShift(Protocol):
 
 @dataclass
 class GenericScaler(Scaler):
-    kernel: type[Kernel] | Kernel = field(default_factory=lambda: Catrom(), kw_only=True)
+    kernel: KernelT = field(default_factory=lambda: Catrom, kw_only=True)
 
     def __init__(
         self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any

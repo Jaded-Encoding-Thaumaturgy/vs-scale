@@ -3,10 +3,10 @@ from __future__ import annotations
 from functools import partial
 from itertools import groupby
 from math import log2
-from typing import Callable, Iterable, Literal, Sequence, Type, cast, overload
+from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Eedi3, Nnedi3, SuperSampler
-from vskernels import Catrom, Kernel, KernelT, Scaler, Spline144
+from vskernels import Catrom, Kernel, KernelT, Scaler, Spline144, ScalerT
 from vsmask.edge import EdgeDetect
 from vstools import (
     check_variable, core, depth, get_depth, get_h, get_prop, get_w, get_y, join, normalize_seq, split, vs
@@ -134,7 +134,7 @@ def get_select_descale(
     return _select_descale, diff_clips
 
 
-DescKernelsT = Kernel | Type[Kernel] | str | Sequence[Kernel | Type[Kernel] | str]
+DescKernelsT = KernelT | Sequence[KernelT]
 
 
 @overload
@@ -349,8 +349,7 @@ def descale(
 
 def mixed_rescale(
     clip: vs.VideoNode, width: None | int = None, height: int = 720,
-    kernel: KernelT = Catrom,
-    downscaler: Scaler | KernelT = SSIM,
+    kernel: KernelT = Catrom, downscaler: ScalerT = SSIM,
     credit_mask: vs.VideoNode | CreditMaskT | bool = partial(descale_detail_mask, thr=0.05, inflate=4, xxpand=(4, 2)),
     mix_strength: float = 0.25, show_mask: bool | int = False,
     # Default settings set to match insaneAA as closely as reasonably possible
