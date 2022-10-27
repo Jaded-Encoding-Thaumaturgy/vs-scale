@@ -23,7 +23,7 @@ __all__ = [
 
 def descale_detail_mask(
     clip: vs.VideoNode, rescaled: vs.VideoNode, thr: float = 0.05,
-    inflate: int = 2, xxpand: tuple[int, int] = [4, 0]
+    inflate: int = 2, xxpand: tuple[int, int] = (4, 0)
 ) -> vs.VideoNode:
     mask = norm_expr([get_y(clip), get_y(rescaled)], 'x y - abs')
 

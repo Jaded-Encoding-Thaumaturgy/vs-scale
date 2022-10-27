@@ -63,7 +63,7 @@ class MergeScalers(GenericScaler):
         else:
             weight = 1.0 / len(scalers)
 
-            norm_scalers = [(scaler, weight) for scaler in scalers]
+            norm_scalers = [(scaler, weight) for scaler in scalers]  # type: ignore
 
         self.scalers = [
             (

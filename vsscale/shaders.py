@@ -134,7 +134,7 @@ class ShaderFile(ShaderFileBase):
     SSIM_DOWNSCALER = 'SSimDownscaler.glsl'
     SSIM_SUPERSAMPLER = 'SSimSuperRes.glsl'
 
-    def __call__(self: ShaderFileCustom, file_name: str | Path) -> Path:
+    def __call__(self: ShaderFileCustom, file_name: str | Path) -> Path:  # type: ignore
         if self is not ShaderFile.CUSTOM:
             raise NotImplementedError
 
@@ -179,9 +179,4 @@ class FSRCNNXShader(PlaceboShaderBase):
         shader_file = ShaderFile.FSRCNNX_x56
 
 
-FSRCNNXShaderT = (
-    type[FSRCNNXShader] | FSRCNNXShader
-    | type[FSRCNNXShader.x8] | FSRCNNXShader.x8
-    | type[FSRCNNXShader.x16] | FSRCNNXShader.x16
-    | type[FSRCNNXShader.x56] | FSRCNNXShader.x56
-)
+FSRCNNXShaderT = type[PlaceboShaderBase] | PlaceboShaderBase  # type: ignore
