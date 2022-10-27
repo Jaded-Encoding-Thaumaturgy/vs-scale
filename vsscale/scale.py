@@ -43,7 +43,7 @@ class DPID(Scaler):
         else:
             ref = clip
 
-        scaler = self.ref if isinstance(self.ref, Scaler) else self.scaler
+        scaler = Scaler.ensure_obj(self.ref if isinstance(self.ref, Scaler) else self.scaler)
 
         if (ref.width, ref.height) != (width, height):
             ref = scaler.scale(ref, width, height)
@@ -172,24 +172,26 @@ def ssim_downsample(
 class DLISR(GenericScaler):
     scaler: ScalerT = DPID(0.5, SetsuCubic)
     matrix: MatrixT | None = None
-
     device_id: int | None = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self._scaler = Scaler.ensure_obj(self.scaler)
 
     @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         *, matrix: MatrixT | None = None, **kwargs: Any
     ) -> vs.VideoNode:
-        assert check_variable(clip, self.__class__)
-
         output = clip
-        matrix = None
+
+        assert check_variable(clip, self.__class__)
 
         if width > clip.width or height > clip.width:
             if not matrix:
-                matrix = self.matrix or Matrix.from_param(matrix, self.__class__) or Matrix.from_video(clip, False)
+                matrix = Matrix.from_param(matrix or self.matrix, self.__class__) or Matrix.from_video(clip, False)
 
-            output = self.kernel.resample(output, vs.RGBS, Matrix.RGB, matrix)
+            output = self._kernel.resample(output, vs.RGBS, Matrix.RGB, matrix)
             output = output.std.Limiter()
 
             max_scale = max(ceil(width / clip.width), ceil(height / clip.height))
@@ -197,13 +199,13 @@ class DLISR(GenericScaler):
             output = output.akarin.DLISR(max_scale, self.device_id)
 
         if (clip.width, clip.height) != (width, height):
-            output = self.scaler.scale(output, width, height, shift)
+            output = self._scaler.scale(output, width, height, shift)
         elif shift != (0, 0):
-            output = self.kernel.shift(output, shift)
+            output = self._kernel.shift(output, shift)
 
         assert check_variable(output, self.__class__)
 
         if output.format.id == clip.format.id:
             return output
 
-        return self.kernel.resample(output, clip, matrix)
+        return self._kernel.resample(output, clip, matrix)

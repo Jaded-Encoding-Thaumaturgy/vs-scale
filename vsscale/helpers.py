@@ -33,6 +33,9 @@ class _GeneriScaleWithShift(Protocol):
 class GenericScaler(Scaler):
     kernel: KernelT = field(default_factory=lambda: Catrom, kw_only=True)
 
+    def __post_init__(self) -> None:
+        self._kernel = Kernel.ensure_obj(self.kernel)
+
     def __init__(
         self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any
     ) -> None:
@@ -58,7 +61,7 @@ class GenericScaler(Scaler):
         except BaseException:
             scaled = self.func(clip, width=width, height=height, **kwargs)
 
-        return self.kernel.shift(scaled, shift)
+        return self._kernel.shift(scaled, shift)
 
 
 def scale_var_clip(

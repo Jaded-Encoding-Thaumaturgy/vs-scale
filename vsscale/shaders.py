@@ -51,6 +51,9 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     shifter: KernelT | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
+        self._scaler = Scaler.ensure_obj(self.scaler)
+        self._shifter = Kernel.ensure_obj(self.shifter)
+
         if not hasattr(self, 'shader_file'):
             raise CustomRuntimeError('You must specify a "shader_file"!', self.__class__)
 
@@ -104,15 +107,15 @@ class PlaceboShaderBase(PlaceboShaderMeta):
             clip = get_y(clip)
 
         if (clip.width, clip.height) != (width, height):
-            clip = self.scaler.scale(clip, width, height)
+            clip = self._scaler.scale(clip, width, height)
 
         if shift != (0, 0):
             if self.shifter:
-                clip = self.shifter.shift(clip, shift)
+                clip = self._shifter.shift(clip, shift)
             else:
-                clip = self.kernel.shift(clip, shift)
+                clip = self._kernel.shift(clip, shift)
 
-        return self.kernel.resample(clip, fmt)
+        return self._kernel.resample(clip, fmt)
 
 
 @dataclass
