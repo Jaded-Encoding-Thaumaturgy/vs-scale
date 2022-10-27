@@ -112,7 +112,7 @@ class MergedFSRCNNX(GenericScaler):
         if self.undershoot is None:
             self.undershoot = self.overshoot
 
-        self._fsrcnnx_shader = FSRCNNXShader.ensure_obj(self.fsrcnnx_shader)
+        self._fsrcnnx_shader = FSRCNNXShader.ensure_obj(self.fsrcnnx_shader, self.__class__)
 
     @inject_self
     def scale(  # type: ignore
@@ -129,7 +129,7 @@ class MergedFSRCNNX(GenericScaler):
             if shift != (0, 0):
                 smooth = self._kernel.shift(smooth, shift)
         else:
-            smooth = Scaler.ensure_obj(self.reference).scale(clip, width, height, shift)
+            smooth = Scaler.ensure_obj(self.reference, self.__class__).scale(clip, width, height, shift)
 
         check_ref_clip(fsrcnnx, smooth)
 
@@ -188,7 +188,7 @@ class UnsharpedFSRCNNX(GenericScaler):
         self.merge_mode = merge_mode
 
         self.reference = reference
-        self.fsrcnnx_shader = Scaler.ensure_obj(fsrcnnx_shader)
+        self.fsrcnnx_shader = Scaler.ensure_obj(fsrcnnx_shader, self.__class__)
 
         self.args = args
         self.kwargs = kwargs
@@ -206,7 +206,7 @@ class UnsharpedFSRCNNX(GenericScaler):
             if shift != (0, 0):
                 smooth = self._kernel.shift(smooth, shift)
         else:
-            smooth = Scaler.ensure_obj(self.reference).scale(clip, width, height, shift)
+            smooth = Scaler.ensure_obj(self.reference, self.__class__).scale(clip, width, height, shift)
 
         check_ref_clip(fsrcnnx, smooth)
 

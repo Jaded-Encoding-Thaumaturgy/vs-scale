@@ -51,8 +51,8 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     shifter: KernelT | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
-        self._scaler = Scaler.ensure_obj(self.scaler)
-        self._shifter = Kernel.ensure_obj(self.shifter)
+        self._scaler = Scaler.ensure_obj(self.scaler, self.__class__)
+        self._shifter = Kernel.ensure_obj(self.shifter, self.__class__)
 
         if not hasattr(self, 'shader_file'):
             raise CustomRuntimeError('You must specify a "shader_file"!', self.__class__)

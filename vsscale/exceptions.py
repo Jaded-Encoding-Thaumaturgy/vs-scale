@@ -17,4 +17,4 @@ class CompareSameKernelError(CustomValueError):
         self, func: FuncExceptT, kernel: KernelT, message: str = 'You may not compare {kernel} with itself!',
         **kwargs: Any
     ) -> None:
-        super().__init__(message, func, kernel=Kernel.from_param(kernel), **kwargs)
+        super().__init__(message, func, kernel=Kernel.from_param(kernel, CompareSameKernelError), **kwargs)

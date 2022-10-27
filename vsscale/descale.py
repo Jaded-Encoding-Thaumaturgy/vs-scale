@@ -257,7 +257,7 @@ def descale(
 
     norm_resolutions = list(zip(widths, heights))
     norm_kernels = [
-        kernel if isinstance(kernel, Kernel) else Kernel.from_param(kernel)()
+        kernel if isinstance(kernel, Kernel) else Kernel.ensure_obj(kernel, descale)
         for kernel in kernels
     ]
 
@@ -393,12 +393,12 @@ def mixed_rescale(
 
     :raises ValueError:     ``mask_thr`` is not between 0.0–1.0.
     """
-    assert check_variable(clip, "mixed_rescale")
+    assert check_variable(clip, mixed_rescale)
 
     width = width or get_w(height, clip.width / clip.height, 1)
 
-    kernel = Kernel.ensure_obj(kernel)
-    downscaler = Kernel.ensure_obj(downscaler)
+    kernel = Kernel.ensure_obj(kernel, mixed_rescale)
+    downscaler = Kernel.ensure_obj(downscaler, mixed_rescale)
 
     bits = get_depth(clip)
     clip_y = get_y(clip)

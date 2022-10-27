@@ -6,7 +6,7 @@ from math import ceil
 from typing import Any
 
 from vsexprtools import aka_expr_available, expr_func
-from vskernels import Bilinear, Catrom, Kernel, Scaler, ScalerT, SetsuCubic
+from vskernels import Bilinear, Catrom, Scaler, ScalerT, SetsuCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_variable, core, depth, fallback, get_depth, get_w,
@@ -43,7 +43,7 @@ class DPID(Scaler):
         else:
             ref = clip
 
-        scaler = Scaler.ensure_obj(self.ref if isinstance(self.ref, Scaler) else self.scaler)
+        scaler = Scaler.ensure_obj(self.ref if isinstance(self.ref, Scaler) else self.scaler, self.__class__)
 
         if (ref.width, ref.height) != (width, height):
             ref = scaler.scale(ref, width, height)
@@ -122,8 +122,7 @@ def ssim_downsample(
     """
     assert clip.format
 
-    if not isinstance(scaler, Scaler):
-        scaler = Kernel.from_param(scaler)()
+    scaler = Scaler.ensure_obj(scaler, ssim_downsample)
 
     if isinstance(scaler, SSIM):
         raise ValueError("SSIM: you can't have SSIM as a scaler for itself!")
@@ -176,7 +175,7 @@ class DLISR(GenericScaler):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self._scaler = Scaler.ensure_obj(self.scaler)
+        self._scaler = Scaler.ensure_obj(self.scaler, self.__class__)
 
     @inject_self
     def scale(  # type: ignore

@@ -34,7 +34,7 @@ class GenericScaler(Scaler):
     kernel: KernelT = field(default_factory=lambda: Catrom, kw_only=True)
 
     def __post_init__(self) -> None:
-        self._kernel = Kernel.ensure_obj(self.kernel)
+        self._kernel = Kernel.ensure_obj(self.kernel, self.__class__)
 
     def __init__(
         self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any
