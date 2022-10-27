@@ -172,6 +172,7 @@ class DLISR(GenericScaler):
 
     def __post_init__(self) -> None:
         super().__post_init__()
+
         self._scaler = Scaler.ensure_obj(self.scaler, self.__class__)
 
     @inject_self

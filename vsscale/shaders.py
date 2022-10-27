@@ -51,6 +51,8 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     shifter: KernelT | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
+        super().__post_init__()
+
         self._scaler = Scaler.ensure_obj(self.scaler, self.__class__)
         self._shifter = self._scaler.ensure_obj(self.shifter, self.__class__)
 

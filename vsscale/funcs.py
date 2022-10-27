@@ -102,6 +102,8 @@ class MergedFSRCNNX(GenericScaler):
     fsrcnnx_shader: FSRCNNXShaderT = FSRCNNXShader.x56
 
     def __post_init__(self) -> None:
+        super().__post_init__()
+
         if self.strength >= 100:
             raise CustomOverflowError('strength can\'t be more or equal to 100!', self.__class__)
         elif self.strength <= 0:
