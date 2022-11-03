@@ -289,14 +289,19 @@ def descale(
     ]
 
     if len(descale_attempts) > 1:
-        var_res_clip = core.std.Splice([
-            clip_y.std.BlankClip(length=len(clip_y) - 1, keep=True),
-            clip_y.std.BlankClip(length=1, width=clip_y.width + 1, keep=True)
-        ], mismatch=True)
+        norm_set_res = set(norm_resolutions)
+        if len(norm_set_res) > 1:
+            ref_clip = core.std.Splice([
+                clip_y.std.BlankClip(length=len(clip_y) - 1, keep=True),
+                clip_y.std.BlankClip(length=1, width=clip_y.width + 1, keep=True)
+            ], mismatch=True)
+        else:
+            target_width, target_height = norm_set_res.pop()
+            ref_clip = clip_y.std.BlankClip(target_width, target_height, len(clip_y), keep=True)
 
         select_partial, prop_clips = get_select_descale(clip_y, descale_attempts, mode)
 
-        descaled = var_res_clip.std.FrameEval(select_partial, prop_clips)
+        descaled = ref_clip.std.FrameEval(select_partial, prop_clips)
     else:
         descaled = descale_attempts[0].descaled
 
