@@ -297,7 +297,7 @@ def descale(
             ], mismatch=True)
         else:
             target_width, target_height = norm_set_res.pop()
-            ref_clip = clip_y.std.BlankClip(target_width, target_height, len(clip_y), keep=True)
+            ref_clip = clip_y.std.BlankClip(target_width, target_height, keep=True)
 
         select_partial, prop_clips = get_select_descale(clip_y, descale_attempts, mode)
 
