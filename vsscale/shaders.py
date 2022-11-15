@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import cached_property
 from math import ceil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
-from vskernels import Catrom, Kernel, Scaler, ScalerT, KernelT
+from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
 from vstools import (
     CustomRuntimeError, FileWasNotFoundError, core, expect_bits, get_user_data_dir, get_video_format, get_y,
-    inject_self, join, vs, CustomNotImplementedError
+    inject_self, join, vs, MISSING
 )
 
 from .base import ShaderFileBase, ShaderFileCustom
@@ -83,7 +82,11 @@ class PlaceboShaderBase(PlaceboShaderMeta):
                 clip = join(clip, blank, blank)
 
         kwargs |= {
-            'shader': self.shader_file.path if isinstance(self.shader_file, ShaderFile) else str(self.shader_file),
+            'shader': str(
+                self.shader_file()
+                if isinstance(self.shader_file, ShaderFile) else
+                ShaderFile.CUSTOM(self.shader_file)
+            ),
             'chroma_loc': self.chroma_loc, 'matrix': self.matrix,
             'trc': self.trc, 'linearize': self.linearize,
             'sigmoidize': self.sigmoidize, 'sigmoid_center': self.sigmoid_center, 'sigmoid_slope': self.sigmoid_slope,
@@ -138,20 +141,30 @@ class ShaderFile(ShaderFileBase):
     SSIM_DOWNSCALER = 'SSimDownscaler.glsl'
     SSIM_SUPERSAMPLER = 'SSimSuperRes.glsl'
 
+    @overload
+    def __call__(self) -> Path:  # type: ignore
+        ...
+
+    @overload
     def __call__(self: ShaderFileCustom, file_name: str | Path) -> Path:  # type: ignore
+        ...
+
+    def __call__(self, file_name: str | Path = MISSING) -> Path:  # type: ignore
         if self is not ShaderFile.CUSTOM:
-            raise CustomNotImplementedError
+            return Path(__file__).parent / 'shaders' / self.value
 
-        in_cwd = Path.cwd() / file_name
+        if file_name is MISSING:
+            raise TypeError("ShaderFile.__call__() missing 1 required positional argument: 'file_name'")
 
-        if in_cwd.is_file():
-            return in_cwd
+        file_name, cwd = Path(file_name), Path.cwd()
 
         assets_dirs = [
-            Path.cwd() / '.shaders' / file_name,
-            Path.cwd() / '_shaders' / file_name,
-            Path.cwd() / '.assets' / file_name,
-            Path.cwd() / '_assets' / file_name
+            file_name,
+            cwd / file_name,
+            cwd / '.shaders' / file_name,
+            cwd / '_shaders' / file_name,
+            cwd / '.assets' / file_name,
+            cwd / '_assets' / file_name
         ]
 
         for asset_dir in assets_dirs:
@@ -164,13 +177,6 @@ class ShaderFile(ShaderFileBase):
             return mpv_dir
 
         raise FileWasNotFoundError(f'"{file_name}" could not be found!', str(ShaderFile.CUSTOM))
-
-    @cached_property
-    def path(self) -> Path:
-        if self is ShaderFile.CUSTOM:
-            raise CustomNotImplementedError
-
-        return Path(__file__).parent / 'shaders' / self.value
 
 
 class FSRCNNXShader(PlaceboShaderBase):
