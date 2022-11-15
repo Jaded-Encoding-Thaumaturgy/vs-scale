@@ -147,10 +147,16 @@ class ShaderFile(ShaderFileBase):
         if in_cwd.is_file():
             return in_cwd
 
-        asset_dir = Path.cwd() / '_assets' / file_name
+        assets_dirs = [
+            Path.cwd() / '.shaders' / file_name,
+            Path.cwd() / '_shaders' / file_name,
+            Path.cwd() / '.assets' / file_name,
+            Path.cwd() / '_assets' / file_name
+        ]
 
-        if asset_dir.is_file():
-            return asset_dir
+        for asset_dir in assets_dirs:
+            if asset_dir.is_file():
+                return asset_dir
 
         mpv_dir = get_user_data_dir().parent / 'Roaming' / 'mpv' / 'shaders' / file_name
 
