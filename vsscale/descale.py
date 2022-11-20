@@ -136,18 +136,15 @@ def get_select_descale(
     return _select_descale, diff_clips
 
 
-DescKernelsT = KernelT | Sequence[KernelT]
-
-
 @overload
 def descale(  # type: ignore
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: DescKernelsT = Catrom(), upscaler: Scaler | None = Nnedi3(),
+    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT | None = Nnedi3,
     mask: CreditMaskT | Literal[False] = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: Kernel = Spline144(),
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: Literal[False] = False
 ) -> vs.VideoNode:
     ...
@@ -157,11 +154,11 @@ def descale(  # type: ignore
 def descale(  # type: ignore
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: DescKernelsT = Catrom(), upscaler: Scaler = Nnedi3(),
+    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT = Nnedi3,
     mask: CreditMaskT = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: Kernel = Spline144(),
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: Literal[True] = True
 ) -> _DescaleTypeGuards.UpscalerNotNoneMaskNotNone:
     ...
@@ -171,11 +168,11 @@ def descale(  # type: ignore
 def descale(  # type: ignore
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: DescKernelsT = Catrom(), upscaler: Scaler = Nnedi3(),
+    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT = Nnedi3,
     mask: Literal[False] = False,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: Kernel = Spline144(),
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: Literal[True] = True
 ) -> _DescaleTypeGuards.UpscalerNotNoneMaskIsNone:
     ...
@@ -185,11 +182,11 @@ def descale(  # type: ignore
 def descale(  # type: ignore
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: DescKernelsT = Catrom(), upscaler: None = None,
+    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: None = None,
     mask: CreditMaskT = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: Kernel = Spline144(),
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: Literal[True] = True
 ) -> _DescaleTypeGuards.UpscalerIsNoneMaskNotNone:
     ...
@@ -199,11 +196,11 @@ def descale(  # type: ignore
 def descale(
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: DescKernelsT = Catrom(), upscaler: None = None,
+    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: None = None,
     mask: Literal[False] = False,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: Kernel = Spline144(),
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: Literal[True] = True
 ) -> _DescaleTypeGuards.UpscalerIsNoneMaskIsNone:
     ...
@@ -213,11 +210,11 @@ def descale(
 def descale(
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: DescKernelsT = Catrom(), upscaler: Scaler | None = Nnedi3(),
+    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT | None = Nnedi3,
     mask: CreditMaskT | Literal[False] = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: Kernel = Spline144(),
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: Literal[True] = True
 ) -> DescaleResult:
     ...
@@ -226,11 +223,11 @@ def descale(
 def descale(
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: DescKernelsT = Catrom(), upscaler: Scaler | None = Nnedi3(),
+    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT | None = Nnedi3,
     mask: CreditMaskT | Literal[False] = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: Kernel = Spline144(),
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: bool = False
 ) -> vs.VideoNode | DescaleResult:
     assert clip.format
@@ -258,10 +255,9 @@ def descale(
         kernels = [kernels]
 
     norm_resolutions = list(zip(widths, heights))
-    norm_kernels = [
-        kernel if isinstance(kernel, Kernel) else Kernel.ensure_obj(kernel, descale)
-        for kernel in kernels
-    ]
+    norm_kernels = [Kernel.ensure_obj(kernel, descale) for kernel in kernels]
+
+    scaler = Scaler.ensure_obj(scaler, descale)
 
     if len(widths) != len(heights):
         raise CustomValueError('Number of heights and widths specified mismatch!', descale)
@@ -318,7 +314,9 @@ def descale(
 
     upscaled = None
     if upscaler:
-        upscaled = scale_var_clip(descaled, dest_width, dest_height, scaler=upscaler)
+        upscaled = scale_var_clip(
+            descaled, dest_width, dest_height, scaler=Scaler.ensure_obj(upscaler, descale)
+        )
         upscaled = depth(upscaled, bit_depth)
 
     if mask:
