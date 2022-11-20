@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Concatenate, Literal, cast
 
@@ -18,8 +18,8 @@ from .shaders import FSRCNNXShader, FSRCNNXShaderT
 
 __all__ = [
     'MergeScalers',
-    'MergedFSRCNNX',
-    'UnsharpedFSRCNNX'
+    'ClampScaler', 'MergedFSRCNNX',
+    'UnsharpLimitScaler', 'UnsharpedFSRCNNX'
 ]
 
 
@@ -84,7 +84,9 @@ class MergeScalers(GenericScaler):
 
 
 @dataclass
-class MergedFSRCNNX(GenericScaler):
+class ClampScaler(GenericScaler):
+    ref_scaler: ScalerT
+
     strength: int = 80
 
     overshoot: float | None = None
@@ -99,8 +101,6 @@ class MergedFSRCNNX(GenericScaler):
 
     range_out: ColorRange | None = None
 
-    fsrcnnx_shader: FSRCNNXShaderT = FSRCNNXShader.x56
-
     def __post_init__(self) -> None:
         super().__post_init__()
 
@@ -114,7 +114,7 @@ class MergedFSRCNNX(GenericScaler):
         if self.undershoot is None:
             self.undershoot = self.overshoot
 
-        self._fsrcnnx_shader = FSRCNNXShader.ensure_obj(self.fsrcnnx_shader, self.__class__)
+        self._ref_scaler = Scaler.ensure_obj(self.ref_scaler, self.__class__)
 
     @inject_self
     def scale(  # type: ignore
@@ -123,7 +123,7 @@ class MergedFSRCNNX(GenericScaler):
     ) -> vs.VideoNode:
         assert (self.undershoot or self.undershoot == 0) and (self.overshoot or self.overshoot == 0)
 
-        fsrcnnx = self._fsrcnnx_shader.scale(clip, width, height, shift, **kwargs)
+        fsrcnnx = self._ref_scaler.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
             smooth = self.reference  # type: ignore
@@ -176,15 +176,14 @@ class MergedFSRCNNX(GenericScaler):
         return merged
 
 
-class UnsharpedFSRCNNX(GenericScaler):
+class UnsharpLimitScaler(GenericScaler):
     def __init__(
-        self,
+        self, ref_scaler: ScalerT,
         unsharp_func: Callable[
             Concatenate[vs.VideoNode, P], vs.VideoNode
         ] = partial(unsharp_masked, radius=2, strength=65),
         merge_mode: LimitFilterMode | bool = True,
         reference: ScalerT | vs.VideoNode = Nnedi3(0, opencl=None),
-        fsrcnnx_shader: FSRCNNXShaderT = FSRCNNXShader.x56,
         *args: P.args, **kwargs: P.kwargs
     ) -> None:
         self.unsharp_func = unsharp_func
@@ -192,7 +191,7 @@ class UnsharpedFSRCNNX(GenericScaler):
         self.merge_mode = merge_mode
 
         self.reference = reference
-        self.fsrcnnx_shader = Scaler.ensure_obj(fsrcnnx_shader, self.__class__)
+        self.ref_scaler = Scaler.ensure_obj(ref_scaler, self.__class__)
 
         self.args = args
         self.kwargs = kwargs
@@ -202,7 +201,7 @@ class UnsharpedFSRCNNX(GenericScaler):
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         *, smooth: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
-        fsrcnnx = self.fsrcnnx_shader.scale(clip, width, height, shift, **kwargs)
+        fsrcnnx = self.ref_scaler.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
             smooth = self.reference  # type: ignore
@@ -225,3 +224,22 @@ class UnsharpedFSRCNNX(GenericScaler):
             return median_clips(smooth, fsrcnnx, smooth_sharp)
 
         return combine([smooth, fsrcnnx, smooth_sharp], ExprOp.MIN)
+
+
+@dataclass
+class MergedFSRCNNX(ClampScaler):
+    ref_scaler: FSRCNNXShaderT = field(default_factory=lambda: FSRCNNXShader.x56, kw_only=True)
+
+
+class UnsharpedFSRCNNX(UnsharpLimitScaler):
+    def __init__(
+        self,
+        unsharp_func: Callable[
+            Concatenate[vs.VideoNode, P], vs.VideoNode
+        ] = partial(unsharp_masked, radius=2, strength=65),
+        merge_mode: LimitFilterMode | bool = True,
+        reference: ScalerT | vs.VideoNode = Nnedi3(0, opencl=None),
+        ref_scaler: ScalerT = FSRCNNXShader.x56,
+        *args: P.args, **kwargs: P.kwargs
+    ) -> None:
+        super().__init__(ref_scaler, unsharp_func, merge_mode, reference, *args, **kwargs)
