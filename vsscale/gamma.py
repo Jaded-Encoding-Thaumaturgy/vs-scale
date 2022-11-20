@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from vsexprtools import ExprOp, aka_expr_available, norm_expr
-from vstools import MatrixCoefficients, Transfer, get_depth, vs, CustomValueError
+from vstools import CustomValueError, MatrixCoefficients, Transfer, get_depth, vs
 
 __all__ = [
     'gamma2linear', 'linear2gamma'

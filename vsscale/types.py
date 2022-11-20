@@ -7,8 +7,8 @@ from vsexprtools import expr_func
 from vskernels import Kernel
 from vsmask.edge import EdgeDetect
 from vstools import (
-    ComparatorFunc, CustomIntEnum, CustomStrEnum, VSMapValue, merge_clip_props, vs, Resolution,
-    CustomNotImplementedError
+    ComparatorFunc, CustomIntEnum, CustomNotImplementedError, CustomStrEnum, Resolution, VSMapValue, merge_clip_props,
+    vs
 )
 
 __all__ = [

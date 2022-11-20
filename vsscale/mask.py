@@ -185,7 +185,7 @@ def ringing_mask(
     )
 
     if isinstance(credit_mask, vs.VideoNode):
-        edgemask = depth(credit_mask, get_depth(clip))
+        edgemask = depth(credit_mask, get_depth(clip))  # type: ignore
     elif isinstance(credit_mask, EdgeDetect):
         edgemask = credit_mask.edgemask(get_y(clip))
 

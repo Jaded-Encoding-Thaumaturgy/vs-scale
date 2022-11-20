@@ -34,11 +34,11 @@ class DPID(Scaler):
     def scale(  # type: ignore[override]
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
+        ref = clip
+
         if isinstance(self.ref, vs.VideoNode):
-            check_ref_clip(clip, self.ref)
-            ref = self.ref
-        else:
-            ref = clip
+            check_ref_clip(clip, self.ref)  # type: ignore
+            ref = self.ref  # type: ignore
 
         scaler = Scaler.ensure_obj(self.ref if isinstance(self.ref, Scaler) else self.scaler, self.__class__)
 
@@ -75,7 +75,7 @@ class SSIM(Scaler):
 
 def ssim_downsample(
     clip: vs.VideoNode, width: int | None = None, height: int = 720,
-    smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
+    smooth: int | float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
     scaler: ScalerT = Catrom,
     curve: Transfer | bool = False, sigmoid: bool = False,
     shift: tuple[float, float] = (0, 0), epsilon: float = 1e-6

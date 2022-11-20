@@ -419,7 +419,7 @@ def mixed_rescale(
 
     if credit_mask:
         if isinstance(credit_mask, vs.VideoNode):
-            detail_mask = depth(credit_mask, get_depth(clip))
+            detail_mask = depth(credit_mask, get_depth(clip))  # type: ignore
         elif callable(credit_mask):
             detail_mask = credit_mask(clip_y, upscaled)
         elif isinstance(credit_mask, EdgeDetect):

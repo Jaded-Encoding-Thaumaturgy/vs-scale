@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, overload
 
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
 from vstools import (
-    CustomRuntimeError, FileWasNotFoundError, core, expect_bits, get_user_data_dir, get_video_format, get_y,
-    inject_self, join, vs, MISSING
+    MISSING, CustomRuntimeError, FileWasNotFoundError, MissingT, core, expect_bits, get_user_data_dir, get_video_format,
+    get_y, inject_self, join, vs
 )
 
 from .base import ShaderFileBase, ShaderFileCustom
@@ -142,18 +142,18 @@ class ShaderFile(ShaderFileBase):
     SSIM_SUPERSAMPLER = 'SSimSuperRes.glsl'
 
     @overload
-    def __call__(self) -> Path:  # type: ignore
+    def __call__(self) -> Path:
         ...
 
     @overload
     def __call__(self: ShaderFileCustom, file_name: str | Path) -> Path:  # type: ignore
         ...
 
-    def __call__(self, file_name: str | Path = MISSING) -> Path:  # type: ignore
+    def __call__(self, file_name: str | Path | MissingT = MISSING) -> Path:
         if self is not ShaderFile.CUSTOM:
             return Path(__file__).parent / 'shaders' / self.value
 
-        if file_name is MISSING:
+        if file_name is MISSING:  # type: ignore
             raise TypeError("ShaderFile.__call__() missing 1 required positional argument: 'file_name'")
 
         file_name, cwd = Path(file_name), Path.cwd()

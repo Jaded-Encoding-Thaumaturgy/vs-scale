@@ -126,12 +126,14 @@ class MergedFSRCNNX(GenericScaler):
         fsrcnnx = self._fsrcnnx_shader.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
-            smooth = self.reference
+            smooth = self.reference  # type: ignore
 
             if shift != (0, 0):
-                smooth = self._kernel.shift(smooth, shift)
+                smooth = self._kernel.shift(smooth, shift)  # type: ignore
         else:
-            smooth = Scaler.ensure_obj(self.reference, self.__class__).scale(clip, width, height, shift)
+            smooth = Scaler.ensure_obj(self.reference, self.__class__).scale(clip, width, height, shift)  # type: ignore
+
+        assert smooth
 
         check_ref_clip(fsrcnnx, smooth)
 
@@ -203,12 +205,14 @@ class UnsharpedFSRCNNX(GenericScaler):
         fsrcnnx = self.fsrcnnx_shader.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
-            smooth = self.reference
+            smooth = self.reference  # type: ignore
 
             if shift != (0, 0):
-                smooth = self._kernel.shift(smooth, shift)
+                smooth = self._kernel.shift(smooth, shift)  # type: ignore
         else:
-            smooth = Scaler.ensure_obj(self.reference, self.__class__).scale(clip, width, height, shift)
+            smooth = Scaler.ensure_obj(self.reference, self.__class__).scale(clip, width, height, shift)  # type: ignore
+
+        assert smooth
 
         check_ref_clip(fsrcnnx, smooth)
 

@@ -5,7 +5,7 @@ from functools import partial
 from typing import Any, Callable, Protocol
 
 from vsaa import Nnedi3
-from vskernels import Catrom, KernelT, Scaler, Kernel
+from vskernels import Catrom, Kernel, KernelT, Scaler
 from vstools import F_VD, get_w, vs
 
 from .types import Resolution
