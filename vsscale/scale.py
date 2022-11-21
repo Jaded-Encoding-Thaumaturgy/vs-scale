@@ -6,11 +6,11 @@ from math import ceil
 from typing import Any
 
 from vsexprtools import aka_expr_available, expr_func
-from vskernels import Bilinear, Catrom, Scaler, ScalerT, SetsuCubic
+from vskernels import Catrom, Scaler, ScalerT, SetsuCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
-    Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_variable, core, depth, fallback, get_depth, get_w,
-    inject_self, vs, CustomValueError, check_ref_clip
+    CustomValueError, Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_ref_clip, check_variable, core, depth,
+    fallback, get_depth, get_w, inject_self, vs
 )
 
 from .gamma import gamma2linear, linear2gamma

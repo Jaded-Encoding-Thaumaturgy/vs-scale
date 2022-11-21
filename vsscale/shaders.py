@@ -5,10 +5,9 @@ from math import ceil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
-from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
 from vstools import (
     MISSING, CustomRuntimeError, FileWasNotFoundError, MissingT, core, expect_bits, get_user_data_dir, get_video_format,
-    get_y, inject_self, join, vs
+    inject_self, join, vs
 )
 
 from .base import ShaderFileBase, ShaderFileCustom
