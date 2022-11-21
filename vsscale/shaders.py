@@ -99,7 +99,7 @@ class PlaceboShaderBase(PlaceboShaderMeta):
             except FileWasNotFoundError:
                 ...
 
-        output = clip.placebo.Shader(**kwargs)
+        output = output.placebo.Shader(**kwargs)
 
         return self._finish_scale(output, clip, width, height, shift)
 
