@@ -5,8 +5,8 @@ from functools import partial
 from typing import Any, Callable, Protocol
 
 from vsaa import Nnedi3
-from vskernels import Catrom, Kernel, KernelT, Scaler
-from vstools import F_VD, get_w, vs
+from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
+from vstools import F_VD, MatrixT, get_w, vs, plane
 
 from .types import Resolution
 
@@ -32,9 +32,15 @@ class _GeneriScaleWithShift(Protocol):
 @dataclass
 class GenericScaler(Scaler):
     kernel: KernelT = field(default_factory=lambda: Catrom, kw_only=True)
+    scaler: ScalerT | None = field(default=None, kw_only=True)
+    shifter: KernelT | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         self._kernel = Kernel.ensure_obj(self.kernel, self.__class__)
+        self._scaler = self._kernel.ensure_obj(self.scaler, self.__class__)
+        self._shifter = Kernel.ensure_obj(
+            self.shifter or (self._scaler if isinstance(self._scaler, Kernel) else Catrom), self.__class__
+        )
 
     def __init__(
         self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any
@@ -47,21 +53,45 @@ class GenericScaler(Scaler):
     ) -> vs.VideoNode:
         kwargs = self.kwargs | kwargs
 
+        output = None
+
         if shift != (0, 0):
             try:
-                return self.func(clip, width, height, shift, **kwargs)
+                output = self.func(clip, width, height, shift, **kwargs)
             except BaseException:
                 try:
-                    return self.func(clip, width=width, height=height, shift=shift, **kwargs)
+                    output = self.func(clip, width=width, height=height, shift=shift, **kwargs)
                 except BaseException:
                     pass
 
-        try:
-            scaled = self.func(clip, width, height, **kwargs)
-        except BaseException:
-            scaled = self.func(clip, width=width, height=height, **kwargs)
+        if output is None:
+            try:
+                output = self.func(clip, width, height, **kwargs)
+            except BaseException:
+                output = self.func(clip, width=width, height=height, **kwargs)
 
-        return self._kernel.shift(scaled, shift)
+        return self._finish_scale(output, clip, width, height, shift)
+
+    def _finish_scale(
+        self, clip: vs.VideoNode, input_clip: vs.VideoNode, width: int, height: int,
+        shift: tuple[float, float] = (0, 0), matrix: MatrixT | None = None
+    ) -> vs.VideoNode:
+        assert input_clip.format
+        if input_clip.format.num_planes == 1:
+            clip = plane(clip, 0)
+
+        if (clip.width, clip.height) != (width, height):
+            clip = self._scaler.scale(clip, width, height)
+
+        if shift != (0, 0):
+            clip = self._shifter.shift(clip, shift)
+
+        assert clip.format
+
+        if clip.format.id == input_clip.format.id:
+            return clip
+
+        return self._kernel.resample(clip, input_clip, matrix)
 
 
 def scale_var_clip(

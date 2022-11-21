@@ -46,16 +46,8 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     param1: float | None = field(default=None, kw_only=True)
     param2: float | None = field(default=None, kw_only=True)
 
-    scaler: ScalerT = field(default=Catrom, kw_only=True)
-    shifter: KernelT | None = field(default=None, kw_only=True)
-
     def __post_init__(self) -> None:
         super().__post_init__()
-
-        self._scaler = Scaler.ensure_obj(self.scaler, self.__class__)
-        self._shifter = Kernel.ensure_obj(
-            self.shifter or (self._scaler if isinstance(self._scaler, Kernel) else Catrom), self.__class__
-        )
 
         if not hasattr(self, 'shader_file'):
             raise CustomRuntimeError('You must specify a "shader_file"!', self.__class__)
@@ -64,22 +56,22 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
-        clip, _ = expect_bits(clip, 16)
+        output, _ = expect_bits(clip, 16)
 
-        fmt = get_video_format(clip)
+        fmt = get_video_format(output)
 
         if fmt.num_planes == 1:
-            if width > clip.width or height > clip.height:
-                clip = clip.resize.Point(format=vs.YUV444P16)
+            if width > output.width or height > output.height:
+                output = output.resize.Point(format=vs.YUV444P16)
             else:
                 for div in (4, 2):
                     if width % div == 0 and height % div == 0:
-                        blank = core.std.BlankClip(clip, clip.width // div, clip.height // div, vs.GRAY16)
+                        blank = core.std.BlankClip(output, output.width // div, output.height // div, vs.GRAY16)
                         break
                 else:
-                    blank = clip.std.BlankClip(vs.GRAY16)
+                    blank = output.std.BlankClip(vs.GRAY16)
 
-                clip = join(clip, blank, blank)
+                output = join(output, blank, blank)
 
         kwargs |= {
             'shader': str(
@@ -95,8 +87,8 @@ class PlaceboShaderBase(PlaceboShaderMeta):
             'blur': self.blur, 'taper': self.taper, 'radius': self.radius,
             'param1': self.param1, 'param2': self.param2,
         } | kwargs | {
-            'width': clip.width * ceil(width / clip.width),
-            'height': clip.height * ceil(height / clip.height)
+            'width': output.width * ceil(width / output.width),
+            'height': output.height * ceil(height / output.height)
         }
 
         if not kwargs['filter']:
@@ -108,21 +100,9 @@ class PlaceboShaderBase(PlaceboShaderMeta):
             except FileWasNotFoundError:
                 ...
 
-        clip = clip.placebo.Shader(**kwargs)
+        output = clip.placebo.Shader(**kwargs)
 
-        if fmt.num_planes == 1:
-            clip = get_y(clip)
-
-        if (clip.width, clip.height) != (width, height):
-            clip = self._scaler.scale(clip, width, height)
-
-        if shift != (0, 0):
-            if self.shifter:
-                clip = self._shifter.shift(clip, shift)
-            else:
-                clip = self._kernel.shift(clip, shift)
-
-        return self._kernel.resample(clip, fmt)
+        return self._finish_scale(output, clip, width, height, shift)
 
 
 @dataclass

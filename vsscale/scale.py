@@ -24,10 +24,9 @@ __all__ = [
 
 
 @dataclass
-class DPID(Scaler):
+class DPID(GenericScaler):
     sigma: float = 0.1
     ref: vs.VideoNode | ScalerT | None = None
-    scaler: ScalerT = Bilinear
     planes: PlanesT = None
 
     @inject_self
@@ -170,11 +169,6 @@ class DLISR(GenericScaler):
     matrix: MatrixT | None = None
     device_id: int | None = None
 
-    def __post_init__(self) -> None:
-        super().__post_init__()
-
-        self._scaler = Scaler.ensure_obj(self.scaler, self.__class__)
-
     @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
@@ -195,14 +189,4 @@ class DLISR(GenericScaler):
 
             output = output.akarin.DLISR(max_scale, self.device_id)
 
-        if (clip.width, clip.height) != (width, height):
-            output = self._scaler.scale(output, width, height, shift)
-        elif shift != (0, 0):
-            output = self._kernel.shift(output, shift)
-
-        assert check_variable(output, self.__class__)
-
-        if output.format.id == clip.format.id:
-            return output
-
-        return self._kernel.resample(output, clip, matrix)
+        return self._finish_scale(output, clip, width, height, shift, matrix)
