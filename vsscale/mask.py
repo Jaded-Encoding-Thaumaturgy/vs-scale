@@ -9,7 +9,7 @@ from vsmask.util import XxpandMode, expand
 from vsrgtools import box_blur, gauss_blur, removegrain
 from vsrgtools.util import wmean_matrix
 from vstools import (
-    check_variable, core, depth, expect_bits, get_depth, get_neutral_value, get_peak_value, get_y, iterate,
+    check_variable, core, depth, expect_bits, get_depth, get_neutral_value, get_peak_value, get_y, iterate, plane,
     scale_thresh, scale_value, shift_clip_multi, split, vs
 )
 
@@ -145,7 +145,7 @@ def simple_detail_mask(
     brz_a = scale_thresh(brz_a, clip)
     brz_b = scale_thresh(brz_b, clip)
 
-    y = get_y(clip)
+    y = plane(clip, 0)
 
     blur = gauss_blur(y, sigma) if sigma else y
 
@@ -187,9 +187,9 @@ def ringing_mask(
     if isinstance(credit_mask, vs.VideoNode):
         edgemask = depth(credit_mask, get_depth(clip))  # type: ignore
     elif isinstance(credit_mask, EdgeDetect):
-        edgemask = credit_mask.edgemask(get_y(clip))
+        edgemask = credit_mask.edgemask(plane(clip, 0))
 
-    edgemask = get_y(edgemask).std.Limiter()
+    edgemask = plane(edgemask, 0).std.Limiter()
 
     light = norm_expr(edgemask, f'x {thlimi} - {thma - thmi} / {smax} *')
     shrink = iterate(light, core.std.Maximum, rad)
