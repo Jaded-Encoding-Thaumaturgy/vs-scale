@@ -239,21 +239,21 @@ def descale(
 
     .. warning::
 
-        | Only descale if you are _absolute certain_ you know the right native resolution(s)
-        | and kernel(s)! Wrong rescales will be more destructive than not rescaling at all!
+        Only descale if you are _absolutely certain_ you know the correct native resolution(s) and kernel(s)!
+        Wrong rescales will be more destructive than simply AAing/dehaloing instead!
 
-    ``width`` and ``height`` both accept multiple targets, allowing you to descale to multiple resolutions
-    in case your source is scaled from different native resolutions. If ``width`` is not set,
+    ``width`` and ``height`` both accept multiple values, allowing you to descale to multiple resolutions
+    in case your source is upscaled from different native resolutions. If ``width`` is not set,
     it will be auto-calculated using the clip's aspect ratio and given height(s) as reference.
 
     You can pass a list of :py:class:`vskernels.Kernel` objects, allowing you to handle mixed sources.
-    Common examples include shows that have been upscaled using either SharpBicubic or Spline36 throughout
-    its runtime. If you find yourself working on a SharpBicubic, Spline36, or Lanczos source,
+    Common examples include shows that have been upscaled using either SharpBicubic or Spline36 throughout its runtime.
+    If you find yourself working on a SharpBicubic, Spline36, or Lanczos source,
     consider double-checking other scenes and episodes for any of the other kernels mentioned.
-    **Especially** if you're got either SharpCubic or Spline36!
+    **Especially** if you've got either SharpCubic or Spline36!
 
-    For fractional resolution descaling, you can pass the ``src_width`` and ``src_height``
-    to the kernel(s) passed to the function.
+    For fractional resolution descaling, you can pass the ``src_width`` and ``src_height`` to the kernel(s)
+    passed to the function.
 
     Conditional descaling can be achieved by making use of ``mode``. Setting a specific mode determines
     how the condition is applied, and a threshold can be set. If the difference between the descaled

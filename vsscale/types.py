@@ -96,6 +96,8 @@ class DescaleResult:
 
 
 class PlaneStatsKind(CustomStrEnum):
+    """Type of PlaneStats comparing to use."""
+
     AVG = 'Average'
     MIN = 'Min'
     MAX = 'Max'
@@ -104,11 +106,15 @@ class PlaneStatsKind(CustomStrEnum):
 
 @dataclass
 class DescaleModeMeta:
+    """@@PLACEHOLDER@@"""
+
     thr: float = field(default=5e-8)
     op: ComparatorFunc = field(default_factory=lambda: max)
 
 
 class DescaleMode(DescaleModeMeta, CustomIntEnum):
+    """@@PLACEHOLDER@@"""
+
     PlaneDiff = 0
     PlaneDiffMax = 1
     PlaneDiffMin = 2

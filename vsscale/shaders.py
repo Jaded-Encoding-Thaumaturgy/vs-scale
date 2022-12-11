@@ -28,6 +28,8 @@ class PlaceboShaderMeta(GenericScaler):
 
 @dataclass
 class PlaceboShaderBase(PlaceboShaderMeta):
+    """@@PLACEHOLDER@@"""
+
     chroma_loc: int | None = field(default=None, kw_only=True)
     matrix: int | None = field(default=None, kw_only=True)
     trc: int | None = field(default=None, kw_only=True)
@@ -116,6 +118,8 @@ class PlaceboShader(PlaceboShaderBase):
 
 
 class ShaderFile(ShaderFileBase):
+    """@@PLACEHOLDER@@"""
+
     if not TYPE_CHECKING:
         CUSTOM = 'custom'
 
@@ -165,6 +169,8 @@ class ShaderFile(ShaderFileBase):
 
 
 class FSRCNNXShader(PlaceboShaderBase):
+    """@@PLACEHOLDER@@"""
+
     shader_file = ShaderFile.FSRCNNX_x56
 
     @dataclass
