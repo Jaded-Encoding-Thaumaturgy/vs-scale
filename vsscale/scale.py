@@ -25,9 +25,16 @@ __all__ = [
 
 @dataclass
 class DPID(GenericScaler):
+    """@@PLACEHOLDER@@"""
+
     sigma: float = 0.1
+    """@@PLACEHOLDER@@"""
+
     ref: vs.VideoNode | ScalerT | None = None
+    """@@PLACEHOLDER@@"""
+
     planes: PlanesT = None
+    """@@PLACEHOLDER@@"""
 
     @inject_self
     def scale(  # type: ignore[override]
@@ -57,11 +64,22 @@ class DPID(GenericScaler):
 
 @dataclass
 class SSIM(Scaler):
+    """@@PLACEHOLDER@@"""
+
     smooth: float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5
+    """@@PLACEHOLDER@@"""
+
     curve: Transfer | bool = False
+    """@@PLACEHOLDER@@"""
+
     sigmoid: bool = False
+    """@@PLACEHOLDER@@"""
+
     epsilon: float = 1e-6
+    """@@PLACEHOLDER@@"""
+
     scaler: ScalerT = Catrom
+    """@@PLACEHOLDER@@"""
 
     @inject_self
     def scale(  # type: ignore[override]
@@ -175,9 +193,16 @@ def ssim_downsample(
 
 @dataclass
 class DLISR(GenericScaler):
+    """@@PLACEHOLDER@@"""
+
     scaler: ScalerT = DPID(0.5, SetsuCubic)
+    """@@PLACEHOLDER@@"""
+
     matrix: MatrixT | None = None
+    """@@PLACEHOLDER@@"""
+
     device_id: int | None = None
+    """@@PLACEHOLDER@@"""
 
     @inject_self
     def scale(  # type: ignore

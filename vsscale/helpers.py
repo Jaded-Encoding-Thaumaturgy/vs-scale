@@ -31,9 +31,16 @@ class _GeneriScaleWithShift(Protocol):
 
 @dataclass
 class GenericScaler(Scaler):
+    """@@PLACEHOLDER@@"""
+
     kernel: KernelT = field(default_factory=lambda: Catrom, kw_only=True)
+    """@@PLACEHOLDER@@"""
+
     scaler: ScalerT | None = field(default=None, kw_only=True)
+    """@@PLACEHOLDER@@"""
+
     shifter: KernelT | None = field(default=None, kw_only=True)
+    """@@PLACEHOLDER@@"""
 
     def __post_init__(self) -> None:
         self._kernel = Kernel.ensure_obj(self.kernel, self.__class__)

@@ -88,27 +88,35 @@ class MergeScalers(GenericScaler):
 
 @dataclass
 class ClampScaler(GenericScaler):
+    """@@PLACEHOLDER@@"""
+
     ref_scaler: ScalerT
+    """@@PLACEHOLDER@@"""
 
     strength: int = 80
+    """@@PLACEHOLDER@@"""
 
     overshoot: float | None = None
+    """@@PLACEHOLDER@@"""
+
     undershoot: float | None = None
+    """@@PLACEHOLDER@@"""
 
     limit: RepairMode | bool = True
+    """@@PLACEHOLDER@@"""
 
     operator: Literal[ExprOp.MAX, ExprOp.MIN] | None = ExprOp.MIN
+    """@@PLACEHOLDER@@"""
     masked: bool = True
+    """@@PLACEHOLDER@@"""
 
     reference: ScalerT | vs.VideoNode = Nnedi3(0, opencl=None)
+    """@@PLACEHOLDER@@"""
 
     range_out: ColorRange | None = None
+    """@@PLACEHOLDER@@"""
 
     def __post_init__(self) -> None:
-        """
-        @@PLACEHOLDER@@
-        """
-
         super().__post_init__()
 
         if self.strength >= 100:
@@ -184,6 +192,8 @@ class ClampScaler(GenericScaler):
 
 
 class UnsharpLimitScaler(GenericScaler):
+    """@@PLACEHOLDER@@"""
+
     def __init__(
         self, ref_scaler: ScalerT,
         unsharp_func: Callable[
@@ -244,6 +254,8 @@ class MergedFSRCNNX(ClampScaler):
 
 
 class UnsharpedFSRCNNX(UnsharpLimitScaler):
+    """@@PLACEHOLDER@@"""
+
     def __init__(
         self,
         unsharp_func: Callable[
@@ -254,7 +266,4 @@ class UnsharpedFSRCNNX(UnsharpLimitScaler):
         ref_scaler: ScalerT = FSRCNNXShader.x56,
         *args: P.args, **kwargs: P.kwargs
     ) -> None:
-        """
-        @@PLACEHOLDER@@
-        """
         super().__init__(ref_scaler, unsharp_func, merge_mode, reference, *args, **kwargs)

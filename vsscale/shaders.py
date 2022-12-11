@@ -48,9 +48,6 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     param2: float | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
-        """
-        @@PLACEHOLDER@@
-        """
         super().__post_init__()
 
         if not hasattr(self, 'shader_file'):
@@ -60,9 +57,6 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
-        """
-        @@PLACEHOLDER@@
-        """
         output, _ = expect_bits(clip, 16)
 
         fmt = get_video_format(output)
@@ -139,6 +133,8 @@ class ShaderFile(ShaderFileBase):
         ...
 
     def __call__(self, file_name: str | Path | MissingT = MISSING) -> Path:
+        """@@PLACEHOLDER@@"""
+
         if self is not ShaderFile.CUSTOM:
             return Path(__file__).parent / 'shaders' / self.value
 
@@ -187,3 +183,4 @@ class FSRCNNXShader(PlaceboShaderBase):
 
 
 FSRCNNXShaderT = type[PlaceboShaderBase] | PlaceboShaderBase  # type: ignore
+"""@@PLACEHOLDER@@"""

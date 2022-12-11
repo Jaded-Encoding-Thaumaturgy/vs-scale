@@ -19,31 +19,33 @@ __all__ = [
 
 
 CreditMaskT = Union[vs.VideoNode, Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode], EdgeDetect]
+"""@@PLACEHOLDER@@"""
 
 
 class DescaleAttempt(NamedTuple):
     """Tuple representing a descale attempt."""
 
-    """The native resolution."""
     resolution: Resolution
+    """The native resolution."""
 
-    """Descaled frame in native resolution."""
     descaled: vs.VideoNode
+    """Descaled frame in native resolution."""
 
-    """Descaled frame reupscaled with the same kernel."""
     rescaled: vs.VideoNode
+    """Descaled frame reupscaled with the same kernel."""
 
-    """The subtractive difference between the original and descaled frame."""
     diff: vs.VideoNode
+    """The subtractive difference between the original and descaled frame."""
 
-    """Kernel used"""
     kernel: Kernel
+    """Kernel used"""
 
-    """Hash to identify the descale attempt"""
     da_hash: str
+    """Hash to identify the descale attempt"""
 
     @classmethod
     def get_hash(cls, width: int, height: int, kernel: Kernel) -> str:
+        """@@PLACEHOLDER@@"""
         return f'{width}_{height}_{kernel.__class__.__name__}'
 
     @classmethod
@@ -51,6 +53,8 @@ class DescaleAttempt(NamedTuple):
         cls, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
         kernel: Kernel, mode: DescaleMode, **kwargs: VSMapValue
     ) -> DescaleAttempt:
+        """@@PLACEHOLDER@@"""
+
         descaled = kernel.descale(clip, width, height, shift)
         descaled = descaled.std.SetFrameProps(**kwargs)
 
@@ -76,23 +80,25 @@ class DescaleAttempt(NamedTuple):
 
 @dataclass
 class DescaleResult:
-    """Descaled clip, can be var res"""
+    """@@PLACEHOLDER@@"""
+
     descaled: vs.VideoNode
+    """Descaled clip, can be var res"""
 
-    """Rescaled clip, can be var res"""
     rescaled: vs.VideoNode
+    """Rescaled clip, can be var res"""
 
-    """Upscaled clip"""
     upscaled: vs.VideoNode | None
+    """Upscaled clip"""
 
-    """Descale error mask"""
     mask: vs.VideoNode | None
+    """Descale error mask"""
 
-    """Descale attempts used"""
     attempts: list[DescaleAttempt]
+    """Descale attempts used"""
 
-    """Normal output"""
     out: vs.VideoNode
+    """Normal output"""
 
 
 class PlaneStatsKind(CustomStrEnum):
@@ -109,26 +115,42 @@ class DescaleModeMeta:
     """@@PLACEHOLDER@@"""
 
     thr: float = field(default=5e-8)
+    """@@PLACEHOLDER@@"""
+
     op: ComparatorFunc = field(default_factory=lambda: max)
+    """@@PLACEHOLDER@@"""
 
 
 class DescaleMode(DescaleModeMeta, CustomIntEnum):
     """@@PLACEHOLDER@@"""
 
     PlaneDiff = 0
+    """@@PLACEHOLDER@@"""
+
     PlaneDiffMax = 1
+    """@@PLACEHOLDER@@"""
+
     PlaneDiffMin = 2
+    """@@PLACEHOLDER@@"""
+
     KernelDiff = 3
+    """@@PLACEHOLDER@@"""
+
     KernelDiffMax = 4
+    """@@PLACEHOLDER@@"""
+
     KernelDiffMin = 5
+    """@@PLACEHOLDER@@"""
 
     def __call__(self, thr: float = 5e-8) -> DescaleMode:
-        self.thr = thr
+        self.thr = thr  # TODO FIX THIS BECAUSE IT'S A FREAKIN' BUG!!!!!!!!!!!!!!!!
 
         return self
 
     @property
     def prop_key(self) -> str:
+        """@@PLACEHOLDER@@"""
+
         if self.is_average:
             return 'PlaneStatsPAvg'
         elif self.is_kernel_diff:
@@ -138,6 +160,8 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def res_op(self) -> ComparatorFunc:
+        """@@PLACEHOLDER@@"""
+
         if self in {self.PlaneDiff, self.KernelDiff, self.PlaneDiffMax, self.KernelDiffMax}:
             return max
 
@@ -148,6 +172,8 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def diff_op(self) -> ComparatorFunc:
+        """@@PLACEHOLDER@@"""
+
         if self in {self.PlaneDiff, self.KernelDiff, self.PlaneDiffMin, self.KernelDiffMin}:
             return min
 
@@ -158,13 +184,19 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def is_average(self) -> bool:
+        """@@PLACEHOLDER@@"""
+
         return self in {self.PlaneDiff, self.PlaneDiffMin, self.PlaneDiffMax}
 
     @property
     def is_kernel_diff(self) -> bool:
+        """@@PLACEHOLDER@@"""
+
         return self in {self.KernelDiff, self.KernelDiffMin, self.KernelDiffMax}
 
     def prop_value(self, kind: PlaneStatsKind) -> str:
+        """@@PLACEHOLDER@@"""
+
         return f'{self.prop_key}{kind.value}'
 
     def __hash__(self) -> int:

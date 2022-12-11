@@ -139,6 +139,7 @@ def credit_mask(
     @@PLACEHOLDER@@
 
     PS: do we really want to reference `vardefunc` here lol
+    Response: no, just wait for vsmasks
     """
     from vardefunc.mask import Difference
 
@@ -170,6 +171,7 @@ def simple_detail_mask(
     @@PLACEHOLDER@@
 
     PS: do we really want to reference `lvsfunc` here lol
+    Response: no, just wait for vsmasks
     """
     from lvsfunc import range_mask
 
