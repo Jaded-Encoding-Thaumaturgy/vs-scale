@@ -33,6 +33,9 @@ class DPID(GenericScaler):
     def scale(  # type: ignore[override]
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
+        """
+        @@PLACEHOLDER@@
+        """
         ref = clip
 
         if isinstance(self.ref, vs.VideoNode):
@@ -64,6 +67,9 @@ class SSIM(Scaler):
     def scale(  # type: ignore[override]
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
+        """
+        @@PLACEHOLDER@@
+        """
         kwargs |= {
             'smooth': self.smooth, 'scaler': self.scaler, 'curve': self.curve,
             'sigmoid': self.sigmoid, 'epsilon': self.epsilon
@@ -82,9 +88,11 @@ def ssim_downsample(
     """
     SSIM downsampler is an image downscaling technique that aims to optimize
     for the perceptual quality of the downscaled results.
+
     Image downscaling is considered as an optimization problem
     where the difference between the input and output images is measured
     using famous Structural SIMilarity (SSIM) index.
+
     The solution is derived in closed-form, which leads to the simple, efficient implementation.
     The downscaled images retain perceptually important features and details,
     resulting in an accurate and spatio-temporally consistent representation of the high resolution input.
@@ -113,6 +121,8 @@ def ssim_downsample(
                         caused by resizing in linear luminance.
                         This parameter only works if `gamma=True`.
     :param shift:       Shift passed to the kernel.
+
+    :raises CustomValueError:   SSIM is passed as a scaler into itself.
 
     :return:            Downsampled clip.
     """
@@ -174,6 +184,9 @@ class DLISR(GenericScaler):
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         *, matrix: MatrixT | None = None, **kwargs: Any
     ) -> vs.VideoNode:
+        """
+        @@PLACEHOLDER@@
+        """
         output = clip
 
         assert check_variable(clip, self.__class__)

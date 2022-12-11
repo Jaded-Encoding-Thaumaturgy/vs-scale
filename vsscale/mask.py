@@ -25,6 +25,24 @@ def descale_detail_mask(
     clip: vs.VideoNode, rescaled: vs.VideoNode, thr: float = 0.05,
     inflate: int = 2, xxpand: tuple[int, int] = (4, 0)
 ) -> vs.VideoNode:
+    """
+    Mask non-native resolution detail to prevent detail loss and artifacting.
+
+    Descaling without masking is very dangerous, as descaling FHD material often leads to
+    heavy artifacting and fine detail loss.
+
+    :param clip:        Original clip.
+    :param rescaled:    Clip rescaled using the presumed native kernel.
+    :param thr:         Binarizing threshold. Lower will catch more.
+                        Assumes float bitdepth input.
+                        Default: 0.05.
+    :param inflate:     Amount of times to ``inflate`` the mask. Default: 2.
+    :param xxpand:      Amount of times to ``Maximum`` the clip by.
+                        The first ``Maximum`` is done before inflating, the second after.
+                        Default: 4 times pre-inflating, 0 times post-inflating.
+
+    :return:            Mask containing all the native FHD detail.
+    """
     mask = norm_expr([get_y(clip), get_y(rescaled)], 'x y - abs')
 
     mask = mask.std.Binarize(thr * get_peak_value(mask))
@@ -47,6 +65,9 @@ def descale_error_mask(
     expands: int | tuple[int, int, int] = (2, 2, 3),
     blur: int | float = 3, bwbias: int = 1, tr: int = 1
 ) -> vs.VideoNode:
+    """
+    @@PLACEHOLDER@@
+    """
     assert clip.format and rescaled.format
 
     y, *chroma = split(clip)
@@ -114,6 +135,11 @@ def credit_mask(
     blur: float | None = 1.65, prefilter: bool = True,
     expand: int = 8
 ) -> vs.VideoNode:
+    """
+    @@PLACEHOLDER@@
+
+    PS: do we really want to reference `vardefunc` here lol
+    """
     from vardefunc.mask import Difference
 
     if blur is None or blur <= 0:
@@ -140,6 +166,11 @@ def credit_mask(
 def simple_detail_mask(
     clip: vs.VideoNode, sigma: float | None = None, rad: int = 3, brz_a: float = 0.025, brz_b: float = 0.045
 ) -> vs.VideoNode:
+    """
+    @@PLACEHOLDER@@
+
+    PS: do we really want to reference `lvsfunc` here lol
+    """
     from lvsfunc import range_mask
 
     brz_a = scale_thresh(brz_a, clip)
@@ -159,6 +190,9 @@ def simple_detail_mask(
 
 
 def multi_detail_mask(clip: vs.VideoNode, thr: float = 0.015) -> vs.VideoNode:
+    """
+    @@PLACEHOLDER@@
+    """
     general_mask = simple_detail_mask(clip, rad=1, brz_a=1, brz_b=24.3 * thr)
 
     return combine([
@@ -176,6 +210,9 @@ def ringing_mask(
     thlimi: float = 0.195, thlima: float = 0.392,
     credit_mask: vs.VideoNode | EdgeDetect = Prewitt()
 ) -> vs.VideoNode:
+    """
+    @@PLACEHOLDER@@
+    """
     assert check_variable(clip, ringing_mask)
 
     smax = get_peak_value(clip)

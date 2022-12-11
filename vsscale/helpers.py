@@ -45,6 +45,9 @@ class GenericScaler(Scaler):
     def __init__(
         self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any
     ) -> None:
+        """
+        @@PLACEHOLDER@@
+        """
         self.func = func
         self.kwargs = kwargs
 
@@ -100,6 +103,9 @@ def scale_var_clip(
     shift: tuple[float, float] | Callable[[Resolution], tuple[float, float]] = (0, 0),
     scaler: Scaler | Callable[[Resolution], Scaler] = Nnedi3(), debug: bool = False
 ) -> vs.VideoNode:
+    """
+    @@PLACEHOLDER@@
+    """
     if not debug:
         try:
             return scaler.scale(clip, width, height, shift)  # type: ignore

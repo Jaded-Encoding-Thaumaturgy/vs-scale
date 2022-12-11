@@ -25,6 +25,9 @@ __all__ = [
 
 class MergeScalers(GenericScaler):
     def __init__(self, *scalers: ScalerT | tuple[ScalerT, float | None]) -> None:
+        """
+        @@PLACEHOLDER@@
+        """
         if (l := len(scalers)) < 2:
             raise CustomIndexError(f'Not enough scalers passed! ({l})', self.__class__)
         elif len(scalers) > len(EXPR_VARS):
@@ -102,6 +105,10 @@ class ClampScaler(GenericScaler):
     range_out: ColorRange | None = None
 
     def __post_init__(self) -> None:
+        """
+        @@PLACEHOLDER@@
+        """
+
         super().__post_init__()
 
         if self.strength >= 100:
@@ -186,6 +193,9 @@ class UnsharpLimitScaler(GenericScaler):
         reference: ScalerT | vs.VideoNode = Nnedi3(0, opencl=None),
         *args: P.args, **kwargs: P.kwargs
     ) -> None:
+        """
+        @@PLACEHOLDER@@
+        """
         self.unsharp_func = unsharp_func
 
         self.merge_mode = merge_mode
@@ -228,6 +238,8 @@ class UnsharpLimitScaler(GenericScaler):
 
 @dataclass
 class MergedFSRCNNX(ClampScaler):
+    """@@PLACEHOLDER@@"""
+
     ref_scaler: FSRCNNXShaderT = field(default_factory=lambda: FSRCNNXShader.x56, kw_only=True)
 
 
@@ -242,4 +254,7 @@ class UnsharpedFSRCNNX(UnsharpLimitScaler):
         ref_scaler: ScalerT = FSRCNNXShader.x56,
         *args: P.args, **kwargs: P.kwargs
     ) -> None:
+        """
+        @@PLACEHOLDER@@
+        """
         super().__init__(ref_scaler, unsharp_func, merge_mode, reference, *args, **kwargs)
