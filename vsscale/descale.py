@@ -319,8 +319,8 @@ def descale(
                             If False, return the regularly rescaled output.
                             Default: False.
 
-    :raises CustomValueError:   Number of given heights and width don't match.
-    :raises CustomValueError:   No kernel is specified.
+    :raises ValueError:     Number of given heights and width don't match.
+    :raises ValueError:     No kernel is specified.
 
     :returns:               Either a rescaled clip (mask applied, chroma readded),
                             or a :py:class:`DescaleResult` object containing the results from ``descale``.
@@ -452,7 +452,7 @@ def mixed_rescale(
     kernel: KernelT = Catrom, downscaler: ScalerT = SSIM,
     credit_mask: vs.VideoNode | CreditMaskT | bool = partial(descale_detail_mask, thr=0.05, inflate=4, xxpand=(4, 2)),
     mix_strength: float = 0.25, show_mask: bool | int = False,
-    # Default settings set to match insaneAA as closely as reasonably possible
+    # Default settings set to match insaneAA as closely and as reasonably possible
     eedi3: SuperSampler = Eedi3(
         alpha=0.2, beta=0.25, gamma=1000, nrad=2, mdis=20, sclip_aa=Nnedi3(nsize=0, nns=4, qual=2, pscrn=1)
     )
