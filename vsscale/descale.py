@@ -6,11 +6,11 @@ from math import log2
 from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Eedi3, Nnedi3, SuperSampler
-from vskernels import Catrom, Kernel, KernelT, Scaler, Spline144, ScalerT
 from vsmask.edge import EdgeDetect
+from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
 from vstools import (
-    check_variable, core, depth, get_depth, get_h, get_prop, get_w, get_y, join, normalize_seq, split, vs,
-    CustomValueError
+    CustomValueError, FieldBased, FieldBasedT, FuncExceptT, check_variable, core, depth, get_depth, get_h, get_prop,
+    get_w, get_y, join, normalize_seq, split, vs
 )
 
 from .helpers import scale_var_clip
@@ -21,7 +21,9 @@ from .types import CreditMaskT, DescaleAttempt, DescaleMode, DescaleResult, Plan
 __all__ = [
     'get_select_descale', 'descale',
 
-    'mixed_rescale'
+    'mixed_rescale',
+
+    'descale_fields'
 ]
 
 
@@ -448,6 +450,54 @@ def mixed_rescale(
         return masked
 
     return core.std.ShufflePlanes([masked, clip], planes=[0, 1, 2], colorfamily=vs.YUV)
+
+
+def descale_fields(
+    clip: vs.VideoNode, tff: bool | FieldBasedT = True,
+    width: int | None = None, height: int = 720,
+    kernel: KernelT = Catrom, src_top: float = 0.0,
+    debug: bool = False, func: FuncExceptT | None = None
+) -> vs.VideoNode:
+    """
+    Descale interwoven upscaled fields, also known as a cross conversion.
+
+    This function also sets a frameprop with the kernel that was used.
+
+    The kernel is set using an py:class:`vskernels.Kernel` object.
+    For more information, check the `vskernels documentation <https://vskernels.encode.moe/en/latest/>`_.
+
+    ``src_top`` allows you to to shift the clip prior to descaling.
+    This may be useful, as sometimes clips are shifted before or after the original upscaling.
+
+    :param clip:        Clip to process.
+    :param tff:         Top-field-first. `False` sets it to Bottom-Field-First.
+    :param width:       Native width. Will be automatically determined if set to `None`.
+    :param height:      Native height. Will be divided by two internally.
+    :param kernel:      py:class:`vskernels.Kernel` object used for the descaling.
+                        This can also be the string name of the kernel (Default: py:class:`vskernels.Catrom`).
+    :param src_top:     Shifts the clip vertically during the descaling.
+
+    :return:            Descaled GRAY clip.
+    """
+
+    func = func or descale_fields
+
+    height_field = int(height / 2)
+    width = width or get_w(height, clip)
+
+    kernel = Kernel.ensure_obj(kernel, func)
+
+    clip = FieldBased.ensure_presence(clip, tff, func)
+
+    y = get_y(clip).std.SeparateFields()
+    descaled = kernel.descale(y, width, height_field, (src_top, 0))
+
+    weave_y = descaled.std.DoubleWeave()
+
+    if debug:
+        weave_y = weave_y.std.SetFrameProp('scaler', data=f'{kernel.__class__.__name__} (Fields)')
+
+    return weave_y.std.SetFieldBased(0)[::2]
 
 
 # TODO: Write a function that checks every possible combination of B and C in bicubic
