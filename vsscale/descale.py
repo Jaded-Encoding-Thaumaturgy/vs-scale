@@ -322,14 +322,14 @@ def descale(
         upscaled = depth(upscaled, bit_depth)
 
     if mask:
-        if isinstance(mask, EdgeDetectT):  # type: ignore
-            mask = EdgeDetect.ensure_obj(mask).edgemask(clip_y)  # type: ignore
+        if isinstance(mask, EdgeDetect) or isinstance(mask, (type, str)):
+            mask = EdgeDetect.ensure_obj(mask).edgemask(clip_y)
         elif callable(mask):
-            mask = mask(clip, rescaled)  # type: ignore
+            mask = mask(clip, rescaled)
 
         assert isinstance(mask, vs.VideoNode)
 
-        mask = depth(mask, bit_depth)  # type: ignore
+        mask = depth(mask, bit_depth)
 
         if upscaled:
             mask = scaler.scale(mask, dest_width, dest_height)
