@@ -7,7 +7,7 @@ from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Eedi3, Nnedi3, SuperSampler
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
-from vsmasktools import EdgeDetect, EdgeDetectT, Prewitt
+from vsmasktools import EdgeDetect, Prewitt
 from vstools import (
     CustomValueError, FieldBased, FieldBasedT, FuncExceptT, check_variable, core, depth, get_depth, get_h, get_prop,
     get_w, get_y, join, normalize_seq, split, vs
