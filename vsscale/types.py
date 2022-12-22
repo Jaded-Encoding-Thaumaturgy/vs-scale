@@ -5,7 +5,7 @@ from typing import Callable, NamedTuple, Union
 
 from vsexprtools import expr_func
 from vskernels import Kernel
-from vsmask.edge import EdgeDetect
+from vsmasktools import EdgeDetectT
 from vstools import (
     ComparatorFunc, CustomIntEnum, CustomNotImplementedError, CustomStrEnum, Resolution, VSMapValue, merge_clip_props,
     vs
@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 
-CreditMaskT = Union[vs.VideoNode, Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode], EdgeDetect]
+CreditMaskT = Union[vs.VideoNode, Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode], EdgeDetectT]
 
 
 class DescaleAttempt(NamedTuple):

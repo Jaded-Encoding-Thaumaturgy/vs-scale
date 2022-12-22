@@ -6,8 +6,8 @@ from math import log2
 from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Eedi3, Nnedi3, SuperSampler
-from vsmask.edge import EdgeDetect
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
+from vsmasktools import EdgeDetect, EdgeDetectT, Prewitt
 from vstools import (
     CustomValueError, FieldBased, FieldBasedT, FuncExceptT, check_variable, core, depth, get_depth, get_h, get_prop,
     get_w, get_y, join, normalize_seq, split, vs
@@ -322,14 +322,14 @@ def descale(
         upscaled = depth(upscaled, bit_depth)
 
     if mask:
-        if isinstance(mask, EdgeDetect):
-            mask = mask.edgemask(clip_y)
+        if isinstance(mask, EdgeDetectT):  # type: ignore
+            mask = EdgeDetect.ensure_obj(mask).edgemask(clip_y)  # type: ignore
         elif callable(mask):
-            mask = mask(clip, rescaled)
+            mask = mask(clip, rescaled)  # type: ignore
 
         assert isinstance(mask, vs.VideoNode)
 
-        mask = depth(mask, bit_depth)
+        mask = depth(mask, bit_depth)  # type: ignore
 
         if upscaled:
             mask = scaler.scale(mask, dest_width, dest_height)
@@ -420,10 +420,12 @@ def mixed_rescale(
     if credit_mask:
         if isinstance(credit_mask, vs.VideoNode):
             detail_mask = depth(credit_mask, get_depth(clip))  # type: ignore
-        elif callable(credit_mask):
+        elif callable(credit_mask) and not isinstance(credit_mask, type):
             detail_mask = credit_mask(clip_y, upscaled)
-        elif isinstance(credit_mask, EdgeDetect):
-            detail_mask = credit_mask.edgemask(merged)
+        else:
+            detail_mask = EdgeDetect.ensure_obj(
+                Prewitt if credit_mask is True else credit_mask  # type: ignore
+            ).edgemask(merged)
 
         detail_mask = detail_mask.std.Limiter()
     else:
