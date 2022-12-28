@@ -197,7 +197,7 @@ class Waifu2x(GenericScaler):
     cuda: bool | Literal['trt'] = True
     opencl: bool = True
     clamper: type[SuperSampler] | SuperSampler | Literal[False] = Nnedi3
-    aa: bool = False
+    aa: VSFunction | bool = False
     num_streams: int = 1
     fp16: bool = True
     matrix: MatrixT | None = None
@@ -271,14 +271,18 @@ class Waifu2x(GenericScaler):
                 output = contrasharpening(output.std.Merge(ss, 3 / 4), ss)
 
             if self.aa:
-                from vsdehalo import fine_dehalo
+                if self.aa is True:
+                    from vsdehalo import fine_dehalo
 
-                eedi3 = Eedi3(0.85, 0.15, 400, 3, 10, vcheck=3, opencl=self.opencl)
-                caa = masked_clamp_aa(output, strength=8.5, strong_aa=eedi3, opencl=self.opencl)
+                    eedi3 = Eedi3(0.85, 0.15, 400, 3, 10, vcheck=3, opencl=self.opencl)
+                    caa = masked_clamp_aa(output, strength=8.5, strong_aa=eedi3, opencl=self.opencl)
 
-                fdh = fine_dehalo(
-                    caa, rx=2.4, ry=2.4, brightstr=0.95, darkstr=0.25, lowsens=30, highsens=80, thma=200, thmi=20, ss=1
-                )
-                output = contrasharpening_dehalo(fdh, output, level=1.0, alpha=1.5)
+                    fdh = fine_dehalo(
+                        caa, rx=2.4, ry=2.4, brightstr=0.95, darkstr=0.25, lowsens=30,
+                        highsens=80, thma=200, thmi=20, ss=1
+                    )
+                    output = contrasharpening_dehalo(fdh, output, level=1.0, alpha=1.5)
+                elif callable(self.aa):
+                    output = self.aa(output)
 
         return self._finish_scale(output, wclip, width, height, shift)
