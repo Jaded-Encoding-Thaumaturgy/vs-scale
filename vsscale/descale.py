@@ -7,7 +7,7 @@ from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Eedi3, Nnedi3, SuperSampler
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
-from vsmasktools import EdgeDetect, Prewitt, GenericMaskT, normalize_mask
+from vsmasktools import Prewitt, GenericMaskT, normalize_mask
 from vstools import (
     CustomValueError, FieldBased, FieldBasedT, FuncExceptT, check_variable, core, depth, get_depth, get_h, get_prop,
     get_w, get_y, join, normalize_seq, split, vs
@@ -303,7 +303,7 @@ def descale(
 
     if result:
         return DescaleResult(
-            descaled, rescaled, upscaled, error_mask, pproc_mask, descale_attempts, out  # type: ignore
+            descaled, rescaled, upscaled, error_mask, pproc_mask, descale_attempts, out
         )
 
     return out
@@ -373,16 +373,9 @@ def mixed_rescale(
     merged = core.akarin.Expr([descaled, downscaled], f'x {mix_strength} * y 1 {mix_strength} - * +')
 
     if credit_mask:
-        if isinstance(credit_mask, vs.VideoNode):
-            detail_mask = depth(credit_mask, get_depth(clip))  # type: ignore
-        elif callable(credit_mask) and not isinstance(credit_mask, type):
-            detail_mask = credit_mask(clip_y, upscaled)
-        else:
-            detail_mask = EdgeDetect.ensure_obj(
-                Prewitt if credit_mask is True else credit_mask  # type: ignore
-            ).edgemask(merged)
-
-        detail_mask = detail_mask.std.Limiter()
+        detail_mask = normalize_mask(
+            Prewitt if credit_mask is True else credit_mask, clip_y, upscaled
+        ).std.Limiter()
     else:
         detail_mask = None
 
