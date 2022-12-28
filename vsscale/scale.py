@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from math import ceil
-from typing import Any
+from math import ceil, floor
+from typing import Any, Literal
 
+from vsaa import Eedi3, Nnedi3, SuperSampler, masked_clamp_aa
 from vsexprtools import aka_expr_available, expr_func
 from vskernels import Catrom, Scaler, ScalerT, SetsuCubic
-from vsrgtools import box_blur, gauss_blur
+from vsrgtools import box_blur, gauss_blur, contrasharpening, contrasharpening_dehalo
 from vstools import (
     Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_ref_clip, check_variable, core, depth,
-    fallback, get_depth, get_w, inject_self, vs
+    fallback, get_depth, get_w, inject_self, vs, expect_bits, padder, DependencyNotFoundError
 )
 
 from .gamma import gamma2linear, linear2gamma
@@ -19,7 +20,8 @@ from .helpers import GenericScaler
 __all__ = [
     'DPID',
     'SSIM', 'ssim_downsample',
-    'DLISR'
+    'DLISR',
+    'Waifu2x'
 ]
 
 
@@ -188,3 +190,95 @@ class DLISR(GenericScaler):
             output = output.akarin.DLISR(max_scale, self.device_id)
 
         return self._finish_scale(output, clip, width, height, shift, matrix)
+
+
+@dataclass
+class Waifu2x(GenericScaler):
+    cuda: bool | Literal['trt'] = True
+    opencl: bool = True
+    clamper: type[SuperSampler] | SuperSampler | Literal[False] = Nnedi3
+    aa: bool = False
+    num_streams: int = 1
+    fp16: bool = True
+    matrix: MatrixT | None = None
+
+    @classmethod
+    def mod_padding(cls, clip: vs.VideoNode, mod: int = 4, min: int = 4) -> tuple[int, int, int, int]:
+        ph, pv = (mod - (((x + min * 2) - 1) % mod + 1) for x in (clip.width, clip.height))
+        left, top = floor(ph / 2), floor(pv / 2)
+        return tuple(x + min for x in (left, ph - left, top, pv - top))  # type: ignore
+
+    def __post_init__(self) -> None:
+        try:
+            from vsmlrt import Backend  # type: ignore
+        except ModuleNotFoundError as e:
+            raise DependencyNotFoundError(self.__class__, e)
+
+        if self.cuda is True:
+            self.backend = Backend.ORT_CUDA(num_streams=self.num_streams, fp16=self.fp16)
+        elif self.cuda is False:
+            self.backend = Backend.NCNN_VK(num_streams=self.num_streams, fp16=self.fp16)
+        else:
+            self.backend = Backend.TRT(num_streams=self.num_streams, fp16=self.fp16)
+
+        if self.scaler is None:
+            self.scaler = SSIM
+
+        if self.clamper and hasattr(self.clamper, 'opencl'):
+            self.clamper = self.clamper.copy(opencl=self.opencl)  # type: ignore
+
+        self._clamper = SuperSampler.ensure_obj(self.clamper, self.__class__) if self.clamper else None
+
+        super().__post_init__()
+
+    @inject_self
+    def scale(  # type:ignore
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
+        *, matrix: MatrixT | None = None, **kwargs: Any
+    ) -> vs.VideoNode:
+        output = clip
+
+        assert check_variable(clip, self.scale)
+
+        if width > clip.width or height > clip.width:
+            from vsmlrt import Waifu2x
+
+            if clip.format.color_family is vs.YUV:
+                if not matrix:
+                    matrix = Matrix.from_param(matrix or self.matrix, self.__class__) or Matrix.from_video(clip, False)
+                wclip = self._kernel.resample(output, vs.RGBS, Matrix.RGB, matrix)
+            else:
+                wclip = output
+
+            padding = self.mod_padding(wclip)
+            clip32, bits = expect_bits(wclip, 32)
+            dsrgb = padder(clip32.std.Limiter(), *padding)
+
+            if clip.format.color_family is vs.GRAY:
+                dsrgb = dsrgb.std.ShufflePlanes(0, vs.RGB)
+
+            up = Waifu2x(dsrgb, noise=-1, model=6, backend=self.backend, **kwargs)
+
+            if clip.format.color_family is vs.GRAY:
+                up = up.std.ShufflePlanes(0, vs.GRAY)
+
+            up = up.std.Crop(*(p * 2 for p in padding)).std.Expr('x 0.5 255 / +')
+
+            output = depth(up, bits).std.CopyFrameProps(clip32)
+
+            if self._clamper:
+                ss = self._clamper.scale(wclip, output.width, output.height)
+                output = contrasharpening(output.std.Merge(ss, 3 / 4), ss)
+
+            if self.aa:
+                from vsdehalo import fine_dehalo
+
+                eedi3 = Eedi3(0.85, 0.15, 400, 3, 10, vcheck=3, opencl=self.opencl)
+                caa = masked_clamp_aa(output, strength=8.5, strong_aa=eedi3, opencl=self.opencl)
+
+                fdh = fine_dehalo(
+                    caa, rx=2.4, ry=2.4, brightstr=0.95, darkstr=0.25, lowsens=30, highsens=80, thma=200, thmi=20, ss=1
+                )
+                output = contrasharpening_dehalo(fdh, output, level=1.0, alpha=1.5)
+
+        return self._finish_scale(output, wclip, width, height, shift)
