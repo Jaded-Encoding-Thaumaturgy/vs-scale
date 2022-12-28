@@ -1,24 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, NamedTuple, Union
+from typing import NamedTuple
 
 from vsexprtools import expr_func
 from vskernels import Kernel
-from vsmasktools import EdgeDetectT
 from vstools import (
     ComparatorFunc, CustomIntEnum, CustomNotImplementedError, CustomStrEnum, Resolution, VSMapValue, merge_clip_props,
     vs
 )
 
 __all__ = [
-    'CreditMaskT', 'Resolution', 'DescaleAttempt',
-    'DescaleMode', 'DescaleResult', 'PlaneStatsKind',
-    '_DescaleTypeGuards'
+    'Resolution', 'DescaleAttempt',
+    'DescaleMode', 'DescaleResult', 'PlaneStatsKind'
 ]
-
-
-CreditMaskT = Union[vs.VideoNode, Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode], EdgeDetectT]
 
 
 class DescaleAttempt(NamedTuple):
@@ -86,7 +81,10 @@ class DescaleResult:
     upscaled: vs.VideoNode | None
 
     """Descale error mask"""
-    mask: vs.VideoNode | None
+    error_mask: vs.VideoNode | None
+
+    """Post process mask"""
+    pproc_mask: vs.VideoNode | None
 
     """Descale attempts used"""
     attempts: list[DescaleAttempt]
@@ -163,29 +161,3 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     def __hash__(self) -> int:
         return hash(self._name_)
-
-
-class _DescaleTypeGuards:
-    class _UpscalerNotNone(DescaleResult):
-        upscaled: vs.VideoNode
-
-    class _UpscalerIsNone(DescaleResult):
-        upscaled: None
-
-    class _MaskNotNone(DescaleResult):
-        mask: vs.VideoNode
-
-    class _MaskIsNone(DescaleResult):
-        mask: None
-
-    class UpscalerNotNoneMaskNotNone(_UpscalerNotNone, _MaskNotNone, DescaleResult):
-        ...
-
-    class UpscalerNotNoneMaskIsNone(_UpscalerNotNone, _MaskIsNone, DescaleResult):
-        ...
-
-    class UpscalerIsNoneMaskNotNone(_UpscalerIsNone, _MaskNotNone, DescaleResult):
-        ...
-
-    class UpscalerIsNoneMaskIsNone(_UpscalerIsNone, _MaskIsNone, DescaleResult):
-        ...

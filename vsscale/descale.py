@@ -7,7 +7,7 @@ from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Eedi3, Nnedi3, SuperSampler
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
-from vsmasktools import EdgeDetect, Prewitt
+from vsmasktools import EdgeDetect, Prewitt, GenericMaskT, normalize_mask
 from vstools import (
     CustomValueError, FieldBased, FieldBasedT, FuncExceptT, check_variable, core, depth, get_depth, get_h, get_prop,
     get_w, get_y, join, normalize_seq, split, vs
@@ -16,7 +16,7 @@ from vstools import (
 from .helpers import scale_var_clip
 from .mask import descale_detail_mask
 from .scale import SSIM
-from .types import CreditMaskT, DescaleAttempt, DescaleMode, DescaleResult, PlaneStatsKind, _DescaleTypeGuards
+from .types import DescaleAttempt, DescaleMode, DescaleResult, PlaneStatsKind
 
 __all__ = [
     'get_select_descale', 'descale',
@@ -143,7 +143,9 @@ def descale(  # type: ignore
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
     kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT | None = Nnedi3,
-    mask: CreditMaskT | Literal[False] = descale_detail_mask,
+    mask: GenericMaskT | Literal[False] | tuple[
+        GenericMaskT | Literal[False] | None, GenericMaskT
+    ] = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
     shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
@@ -153,67 +155,13 @@ def descale(  # type: ignore
 
 
 @overload
-def descale(  # type: ignore
-    clip: vs.VideoNode,
-    width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT = Nnedi3,
-    mask: CreditMaskT = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
-    dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
-    result: Literal[True] = True
-) -> _DescaleTypeGuards.UpscalerNotNoneMaskNotNone:
-    ...
-
-
-@overload
-def descale(  # type: ignore
-    clip: vs.VideoNode,
-    width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT = Nnedi3,
-    mask: Literal[False] = False,
-    mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
-    dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
-    result: Literal[True] = True
-) -> _DescaleTypeGuards.UpscalerNotNoneMaskIsNone:
-    ...
-
-
-@overload
-def descale(  # type: ignore
-    clip: vs.VideoNode,
-    width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: None = None,
-    mask: CreditMaskT = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
-    dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
-    result: Literal[True] = True
-) -> _DescaleTypeGuards.UpscalerIsNoneMaskNotNone:
-    ...
-
-
-@overload
-def descale(
-    clip: vs.VideoNode,
-    width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
-    kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: None = None,
-    mask: Literal[False] = False,
-    mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
-    dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
-    result: Literal[True] = True
-) -> _DescaleTypeGuards.UpscalerIsNoneMaskIsNone:
-    ...
-
-
-@overload
 def descale(
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
     kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT | None = Nnedi3,
-    mask: CreditMaskT | Literal[False] = descale_detail_mask,
+    mask: GenericMaskT | Literal[False] | tuple[
+        GenericMaskT | Literal[False] | None, GenericMaskT
+    ] = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
     shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
@@ -226,7 +174,9 @@ def descale(
     clip: vs.VideoNode,
     width: int | Iterable[int] | None = None, height: int | Iterable[int] = 720,
     kernels: KernelT | Sequence[KernelT] = Catrom, upscaler: ScalerT | None = Nnedi3,
-    mask: CreditMaskT | Literal[False] = descale_detail_mask,
+    mask: GenericMaskT | Literal[False] | tuple[
+        GenericMaskT | Literal[False] | None, GenericMaskT
+    ] = descale_detail_mask,
     mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
     shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
@@ -321,20 +271,25 @@ def descale(
         )
         upscaled = depth(upscaled, bit_depth)
 
-    if mask:
-        if isinstance(mask, EdgeDetect) or isinstance(mask, (type, str)):
-            mask = EdgeDetect.ensure_obj(mask).edgemask(clip_y)
-        elif callable(mask):
-            mask = mask(clip, rescaled)
+    if isinstance(mask, tuple):
+        error_mask, pproc_mask = mask
+    else:
+        error_mask, pproc_mask = mask, None
 
-        assert isinstance(mask, vs.VideoNode)
+    if upscaled:
+        clip_y = scaler.scale(clip_y, dest_width, dest_height)
 
-        mask = depth(mask, bit_depth)
+        if error_mask:
+            error_mask = normalize_mask(error_mask, clip_y, upscaled)
+            error_mask = scaler.scale(error_mask, dest_width, dest_height)
 
-        if upscaled:
-            mask = scaler.scale(mask, dest_width, dest_height)
-            clip_y = scaler.scale(clip_y, dest_width, dest_height)
-            upscaled = upscaled.std.MaskedMerge(clip_y, mask)
+            upscaled = upscaled.std.MaskedMerge(clip_y, error_mask)
+
+        if pproc_mask:
+            pproc_mask = normalize_mask(pproc_mask, clip_y, upscaled)
+            pproc_mask = scaler.scale(pproc_mask, dest_width, dest_height)
+
+            upscaled = clip_y.std.MaskedMerge(upscaled, pproc_mask)
 
     if upscaled:
         out = upscaled
@@ -348,7 +303,7 @@ def descale(
 
     if result:
         return DescaleResult(
-            descaled, rescaled, upscaled, mask if mask else None, descale_attempts, out  # type: ignore
+            descaled, rescaled, upscaled, error_mask, pproc_mask, descale_attempts, out  # type: ignore
         )
 
     return out
@@ -357,7 +312,7 @@ def descale(
 def mixed_rescale(
     clip: vs.VideoNode, width: None | int = None, height: int = 720,
     kernel: KernelT = Catrom, downscaler: ScalerT = SSIM,
-    credit_mask: vs.VideoNode | CreditMaskT | bool = partial(descale_detail_mask, thr=0.05, inflate=4, xxpand=(4, 2)),
+    credit_mask: vs.VideoNode | GenericMaskT | bool = partial(descale_detail_mask, thr=0.05, inflate=4, xxpand=(4, 2)),
     mix_strength: float = 0.25, show_mask: bool | int = False,
     # Default settings set to match insaneAA as closely as reasonably possible
     eedi3: SuperSampler = Eedi3(
