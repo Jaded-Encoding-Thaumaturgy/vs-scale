@@ -65,7 +65,7 @@ class SSIM(GenericScaler):
     resulting in an accurate and spatio-temporally consistent representation of the high resolution input.
     """
 
-    smooth: float | VSFunction | None = None
+    smooth: int | float | VSFunction | None = None
     """
     Image smoothening method.
     If you pass an int, it specifies the "radius" of the internally-used boxfilter,
@@ -91,7 +91,7 @@ class SSIM(GenericScaler):
     This parameter only works if `gamma=True`.
     """
 
-    epsilon: float | None = None
+    epsilon: float = 1e-6
     """Variable used for math operations."""
 
     @inject_self
@@ -102,8 +102,8 @@ class SSIM(GenericScaler):
     ) -> vs.VideoNode:
         assert check_variable(clip, self.scale)
 
-        smooth = fallback(self.smooth, smooth)
-        curve = fallback(self.curve, curve)
+        smooth = fallback(self.smooth, smooth)  # type: ignore
+        curve = fallback(self.curve, curve)  # type: ignore
         sigmoid = fallback(self.sigmoid, sigmoid)
 
         if callable(smooth):
@@ -113,10 +113,11 @@ class SSIM(GenericScaler):
         elif isinstance(smooth, float):
             filter_func = partial(gauss_blur, sigma=smooth)
 
-        width = fallback(width, get_w(height, clip))
-
         if curve is True:
-            curve = Transfer.from_matrix(Matrix.from_video(clip))
+            try:
+                curve = Transfer.from_video(clip, True)
+            except ValueError:
+                curve = Transfer.from_matrix(Matrix.from_video(clip))
 
         bits, clip = get_depth(clip), depth(clip, 32)
 
@@ -155,7 +156,9 @@ def ssim_downsample(
 ) -> vs.VideoNode:
     import warnings
     warnings.warn("ssim_downsample is deprecated! You should use SSIM directly!", DeprecationWarning)
-    return SSIM(epsilon=epsilon, scaler=scaler).scale(clip, width, height, shift, smooth, curve, sigmoid)
+    return SSIM(epsilon=epsilon, scaler=scaler).scale(
+        clip, fallback(width, get_w(height, clip)), height, shift, smooth, curve, sigmoid
+    )
 
 
 @dataclass
