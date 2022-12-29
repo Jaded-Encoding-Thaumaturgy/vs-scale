@@ -290,6 +290,8 @@ def descale(
             pproc_mask = scaler.scale(pproc_mask, dest_width, dest_height)
 
             upscaled = clip_y.std.MaskedMerge(upscaled, pproc_mask)
+    else:
+        error_mask = pproc_mask = None
 
     if upscaled:
         out = upscaled
