@@ -303,6 +303,8 @@ def descale(
     if chroma and upscaled and (clip.width, clip.height) == (dest_width, dest_height):
         out = join([upscaled, *chroma], clip.format.color_family)
 
+    out = out.std.CopyFrameProps(clip)
+
     if result:
         return DescaleResult(
             descaled, rescaled, upscaled, error_mask, pproc_mask, descale_attempts, out
