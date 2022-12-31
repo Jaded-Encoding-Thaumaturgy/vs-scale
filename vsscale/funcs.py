@@ -7,13 +7,13 @@ from typing import Any, Callable, Concatenate, Literal, cast
 from vsaa import Nnedi3
 from vsexprtools import ExprOp, combine, norm_expr
 from vskernels import Scaler, ScalerT
+from vsmasktools import ringing_mask
 from vsrgtools import LimitFilterMode, RepairMode, limit_filter, median_clips, repair, unsharp_masked
 from vstools import (
     EXPR_VARS, ColorRange, CustomIndexError, CustomOverflowError, P, check_ref_clip, inject_self, scale_8bit, vs
 )
 
 from .helpers import GenericScaler
-from .mask import ringing_mask
 from .shaders import FSRCNNXShader, FSRCNNXShaderT
 
 __all__ = [

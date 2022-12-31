@@ -6,7 +6,7 @@ from typing import Any, Callable, Protocol
 
 from vsaa import Nnedi3
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
-from vstools import F_VD, MatrixT, get_w, vs, plane
+from vstools import F_VD, MatrixT, get_w, plane, vs
 
 from .types import Resolution
 
