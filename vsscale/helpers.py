@@ -31,16 +31,24 @@ class _GeneriScaleWithShift(Protocol):
 
 @dataclass
 class GenericScaler(Scaler):
-    """@@PLACEHOLDER@@"""
+    """
+    Generic Scaler base class.
+    Inherit from this to create more complex scalers with built-in utils.
+    Instantiate with a callable taking at least a VideoNode, width, and height
+    to use that as a Scaler in functions taking that.
+    """
 
     kernel: KernelT = field(default_factory=lambda: Catrom, kw_only=True)
-    """@@PLACEHOLDER@@"""
+    """
+    Base kernel to be used for certain scaling/shifting/resampling operations.
+    Must be specified and defaults to catrom
+    """
 
     scaler: ScalerT | None = field(default=None, kw_only=True)
-    """@@PLACEHOLDER@@"""
+    """Scaler used for scaling operations. Defaults to kernel."""
 
     shifter: KernelT | None = field(default=None, kw_only=True)
-    """@@PLACEHOLDER@@"""
+    """Kernel used for shifting operations. Defaults to kernel."""
 
     def __post_init__(self) -> None:
         self._kernel = Kernel.ensure_obj(self.kernel, self.__class__)
@@ -52,9 +60,6 @@ class GenericScaler(Scaler):
     def __init__(
         self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any
     ) -> None:
-        """
-        @@PLACEHOLDER@@
-        """
         self.func = func
         self.kwargs = kwargs
 
@@ -110,9 +115,7 @@ def scale_var_clip(
     shift: tuple[float, float] | Callable[[Resolution], tuple[float, float]] = (0, 0),
     scaler: Scaler | Callable[[Resolution], Scaler] = Nnedi3(), debug: bool = False
 ) -> vs.VideoNode:
-    """
-    @@PLACEHOLDER@@
-    """
+    """Scale a variable clip to constant or varibale resolution."""
     if not debug:
         try:
             return scaler.scale(clip, width, height, shift)  # type: ignore

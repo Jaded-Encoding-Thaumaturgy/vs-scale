@@ -25,9 +25,7 @@ __all__ = [
 
 class MergeScalers(GenericScaler):
     def __init__(self, *scalers: ScalerT | tuple[ScalerT, float | None]) -> None:
-        """
-        @@PLACEHOLDER@@
-        """
+        """Create a unified Scaler from multiple Scalers with optional weights."""
         if (l := len(scalers)) < 2:
             raise CustomIndexError(f'Not enough scalers passed! ({l})', self.__class__)
         elif len(scalers) > len(EXPR_VARS):
@@ -88,33 +86,34 @@ class MergeScalers(GenericScaler):
 
 @dataclass
 class ClampScaler(GenericScaler):
-    """@@PLACEHOLDER@@"""
+    """Clamp a reference Scaler."""
 
     ref_scaler: ScalerT
-    """@@PLACEHOLDER@@"""
+    """Scaler to clamp."""
 
     strength: int = 80
-    """@@PLACEHOLDER@@"""
+    """Strength of clamping."""
 
     overshoot: float | None = None
-    """@@PLACEHOLDER@@"""
+    """Overshoot threshold."""
 
     undershoot: float | None = None
-    """@@PLACEHOLDER@@"""
+    """Undershoot threshold."""
 
     limit: RepairMode | bool = True
-    """@@PLACEHOLDER@@"""
+    """Whether to use under/overshoot limit (True) or a reference repaired clip for limiting."""
 
     operator: Literal[ExprOp.MAX, ExprOp.MIN] | None = ExprOp.MIN
-    """@@PLACEHOLDER@@"""
+    """Whether to take the brightest or darkest pixels in the merge."""
+
     masked: bool = True
-    """@@PLACEHOLDER@@"""
+    """Whether to mask with a ringing mask or not."""
 
     reference: ScalerT | vs.VideoNode = Nnedi3(0, opencl=None)
-    """@@PLACEHOLDER@@"""
+    """Reference Scaler used to clamp ref_scaler"""
 
     range_out: ColorRange | None = None
-    """@@PLACEHOLDER@@"""
+    """Range out for clamping the output. If None it will be fetched from the VideoNode."""
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -192,7 +191,7 @@ class ClampScaler(GenericScaler):
 
 
 class UnsharpLimitScaler(GenericScaler):
-    """@@PLACEHOLDER@@"""
+    """Limit a scaler with a masked unsharping."""
 
     def __init__(
         self, ref_scaler: ScalerT,
@@ -204,8 +203,13 @@ class UnsharpLimitScaler(GenericScaler):
         *args: P.args, **kwargs: P.kwargs
     ) -> None:
         """
-        @@PLACEHOLDER@@
+        :param ref_scaler:      Scaler of which to limit haloing.
+        :param unsharp_func:    Unsharpening function used as reference for limiting.
+        :param merge_mode:      Whether to limit with LimitFilterMode,
+                                use a median filter (True) or just take the darkest pixels (False).
+        :param reference:       Reference scaler used to fill in the haloed parts.
         """
+
         self.unsharp_func = unsharp_func
 
         self.merge_mode = merge_mode
@@ -248,13 +252,13 @@ class UnsharpLimitScaler(GenericScaler):
 
 @dataclass
 class MergedFSRCNNX(ClampScaler):
-    """@@PLACEHOLDER@@"""
+    """Clamped FSRCNNX Scaler."""
 
     ref_scaler: FSRCNNXShaderT = field(default_factory=lambda: FSRCNNXShader.x56, kw_only=True)
 
 
 class UnsharpedFSRCNNX(UnsharpLimitScaler):
-    """@@PLACEHOLDER@@"""
+    """Clamped FSRCNNX Scaler with an unsharp mask."""
 
     def __init__(
         self,

@@ -42,9 +42,6 @@ class DPID(GenericScaler):
     def scale(  # type: ignore[override]
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
-        """
-        @@PLACEHOLDER@@
-        """
         ref = clip
 
         if isinstance(self.ref, vs.VideoNode):
@@ -193,9 +190,6 @@ class DLISR(GenericScaler):
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         *, matrix: MatrixT | None = None, **kwargs: Any
     ) -> vs.VideoNode:
-        """
-        @@PLACEHOLDER@@
-        """
         output = clip
 
         assert check_variable(clip, self.__class__)

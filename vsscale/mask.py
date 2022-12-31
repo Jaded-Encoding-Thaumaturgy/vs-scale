@@ -58,7 +58,17 @@ def descale_error_mask(
     blur: int | float = 3, bwbias: int = 1, tr: int = 1
 ) -> vs.VideoNode:
     """
-    @@PLACEHOLDER@@
+    Create an error mask from the original and rescaled clip.
+
+    :param clip:        Original clip.
+    :param rescaled:    Rescaled clip.
+    :param thr:         Threshold of the minimum difference.
+    :param expands:     Iterations of mask expand at each step (diff, expand, binarize).
+    :param blur:        How much to blur the clip. If int, it will be a box_blur, else gauss_blur.
+    :param bwbias:      Calculate a bias with the clip's chroma.
+    :param tr:          Make the error mask temporally stable with a temporal radius.
+
+    :return:            Descale error mask.
     """
     assert clip.format and rescaled.format
 

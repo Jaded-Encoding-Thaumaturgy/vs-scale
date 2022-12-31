@@ -39,7 +39,7 @@ class DescaleAttempt(NamedTuple):
 
     @classmethod
     def get_hash(cls, width: int, height: int, kernel: Kernel) -> str:
-        """@@PLACEHOLDER@@"""
+        """Get this descale attempt's unique hash."""
         return f'{width}_{height}_{kernel.__class__.__name__}'
 
     @classmethod
@@ -47,7 +47,7 @@ class DescaleAttempt(NamedTuple):
         cls, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
         kernel: Kernel, mode: DescaleMode, **kwargs: VSMapValue
     ) -> DescaleAttempt:
-        """@@PLACEHOLDER@@"""
+        """Get a DescaleAttempt from args. Calculate difference nodes too."""
 
         descaled = kernel.descale(clip, width, height, shift)
         descaled = descaled.std.SetFrameProps(**kwargs)
@@ -74,7 +74,7 @@ class DescaleAttempt(NamedTuple):
 
 @dataclass
 class DescaleResult:
-    """@@PLACEHOLDER@@"""
+    """Dataclass representing a complete result of vsscale.descale."""
 
     descaled: vs.VideoNode
     """Descaled clip, can be var res"""
@@ -109,35 +109,33 @@ class PlaneStatsKind(CustomStrEnum):
 
 @dataclass
 class DescaleModeMeta:
-    """@@PLACEHOLDER@@"""
-
     thr: float = field(default=5e-8)
-    """@@PLACEHOLDER@@"""
+    """Diff threshold."""
 
     op: ComparatorFunc = field(default_factory=lambda: max)
-    """@@PLACEHOLDER@@"""
+    """Operator used for generic sorting."""
 
 
 class DescaleMode(DescaleModeMeta, CustomIntEnum):
-    """@@PLACEHOLDER@@"""
+    """Descale modes for vsscale.descale."""
 
     PlaneDiff = 0
-    """@@PLACEHOLDER@@"""
+    """Simple PlaneStatsDiff between original and descaled."""
 
     PlaneDiffMax = 1
-    """@@PLACEHOLDER@@"""
+    """Get the video with the maximum absolute difference from original."""
 
     PlaneDiffMin = 2
-    """@@PLACEHOLDER@@"""
+    """Get the video with the minimum absolute difference from original."""
 
     KernelDiff = 3
-    """@@PLACEHOLDER@@"""
+    """Simple PlaneStats between original and descaled kernels differences."""
 
     KernelDiffMax = 4
-    """@@PLACEHOLDER@@"""
+    """Get the video descaled with the kernel with the maximum absolute difference from original."""
 
     KernelDiffMin = 5
-    """@@PLACEHOLDER@@"""
+    """Get the video descaled with the kernel with the minimum absolute difference from original."""
 
     def __call__(self, thr: float = 5e-8) -> DescaleMode:
         self.thr = thr  # TODO FIX THIS BECAUSE IT'S A FREAKIN' BUG!!!!!!!!!!!!!!!!
@@ -146,7 +144,7 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def prop_key(self) -> str:
-        """@@PLACEHOLDER@@"""
+        """Get the props key for this DescaleMode."""
 
         if self.is_average:
             return 'PlaneStatsPAvg'
@@ -157,7 +155,7 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def res_op(self) -> ComparatorFunc:
-        """@@PLACEHOLDER@@"""
+        """Get the operator for calculating sort operation between two resolutions."""
 
         if self in {self.PlaneDiff, self.KernelDiff, self.PlaneDiffMax, self.KernelDiffMax}:
             return max
@@ -169,7 +167,7 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def diff_op(self) -> ComparatorFunc:
-        """@@PLACEHOLDER@@"""
+        """Get the operator for calculating sort operation between two props."""
 
         if self in {self.PlaneDiff, self.KernelDiff, self.PlaneDiffMin, self.KernelDiffMin}:
             return min
@@ -181,18 +179,18 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def is_average(self) -> bool:
-        """@@PLACEHOLDER@@"""
+        """Whether this DescaleMode is of PlaneDiff kind."""
 
         return self in {self.PlaneDiff, self.PlaneDiffMin, self.PlaneDiffMax}
 
     @property
     def is_kernel_diff(self) -> bool:
-        """@@PLACEHOLDER@@"""
+        """Whether this DescaleMode is of KernelDiff kind."""
 
         return self in {self.KernelDiff, self.KernelDiffMin, self.KernelDiffMax}
 
     def prop_value(self, kind: PlaneStatsKind) -> str:
-        """@@PLACEHOLDER@@"""
+        """Get props key for getting the value of the PlaneStatsKind."""
 
         return f'{self.prop_key}{kind.value}'
 
