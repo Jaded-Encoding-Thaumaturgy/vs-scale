@@ -189,7 +189,7 @@ def descale(
 
     .. warning::
 
-        Only descale if you are _absolutely certain_ you know the correct native resolution(s) and kernel(s)!
+        Only descale if you are absolutely certain you know the correct native resolution(s) and kernel(s)!
         Wrong rescales will be more destructive than simply AAing/dehaloing instead!
 
     ``width`` and ``height`` both accept multiple values, allowing you to descale to multiple resolutions
@@ -214,7 +214,7 @@ def descale(
     you create a class with a ``scale`` method that adheres to the following API:
 
     ```py
-    class().scale(clip, width, height)
+    class.scale(clip, width, height)
     ```
 
     All the results can be returned using ``result``. This will return a :py:class:`DescaleResult` object
