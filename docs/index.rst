@@ -23,11 +23,9 @@ vsscale Documentation
     :target: https://pepy.tech/project/vsscale
 
 
-Functions and utils related to VapourSynth.
+VapourSynth (de)scale functions
 
-This module is a collection of functions, utils, types, type-utils,
-and more aimed at helping at having a common ground between VapourSynth packages,
-as well as simplify writing and maintaining them.
+Wrappers for scaling and descaling functions.
 
 Want to contribute to vsscale?
 Check out the `how to contribute <contribute>` section!
