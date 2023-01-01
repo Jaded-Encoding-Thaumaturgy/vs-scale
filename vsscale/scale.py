@@ -27,9 +27,20 @@ __all__ = [
 
 @dataclass
 class DPID(GenericScaler):
+    """Rapid, Detail-Preserving Image Downscaler for VapourSynth"""
+
     sigma: float = 0.1
+    """
+    The power factor of range kernel. It can be used to tune the amplification of the weights of pixels
+    that represent detail—from a box filter over an emphasis of distinct pixels towards a selection
+    of only the most distinct pixels.
+    """
+
     ref: vs.VideoNode | ScalerT | None = None
+    """VideoNode or Scaler to obtain the downscaled reference for DPID."""
+
     planes: PlanesT = None
+    """Sets which planes will be processed. Any unprocessed planes will be simply copied from ref."""
 
     @inject_self
     def scale(  # type: ignore[override]
@@ -59,9 +70,11 @@ class SSIM(GenericScaler):
     """
     SSIM downsampler is an image downscaling technique that aims to optimize
     for the perceptual quality of the downscaled results.
+
     Image downscaling is considered as an optimization problem
     where the difference between the input and output images is measured
     using famous Structural SIMilarity (SSIM) index.
+
     The solution is derived in closed-form, which leads to the simple, efficient implementation.
     The downscaled images retain perceptually important features and details,
     resulting in an accurate and spatio-temporally consistent representation of the high resolution input.
@@ -165,9 +178,16 @@ def ssim_downsample(
 
 @dataclass
 class DLISR(GenericScaler):
+    """Use Nvidia NGX Technology DLISR DNN to scale up nodes. https://developer.nvidia.com/rtx/ngx"""
+
     scaler: ScalerT = DPID(0.5, SetsuCubic)
+    """Scaler to use to downscale clip to desired resolution, if necessary."""
+
     matrix: MatrixT | None = None
+    """Input clip's matrix. Set only if necessary."""
+
     device_id: int | None = None
+    """Which cuda device to run this filter on."""
 
     @inject_self
     def scale(  # type: ignore
@@ -194,13 +214,28 @@ class DLISR(GenericScaler):
 
 @dataclass
 class Waifu2x(GenericScaler):
+    """Use Waifu2x neural network to scale clip up."""
+
     cuda: bool | Literal['trt'] = True
+    """Whether to run this on cpu, gpu, or use trt technology."""
+
     opencl: bool = True
+    """Whether to use opencl for the clamping."""
+
     clamper: type[SuperSampler] | SuperSampler | Literal[False] = Nnedi3
+    """Clamper SuperSampler."""
+
     aa: VSFunction | bool = False
+    """Whether to clamp and run aa on the upscaled clip."""
+
     num_streams: int = 1
+    """Number of gpu streams for the model."""
+
     fp16: bool = True
+    """Whether to use float16 precision if available."""
+
     matrix: MatrixT | None = None
+    """Input clip's matrix. Set only if necessary."""
 
     @classmethod
     def mod_padding(cls, clip: vs.VideoNode, mod: int = 4, min: int = 4) -> tuple[int, int, int, int]:

@@ -28,6 +28,8 @@ class PlaceboShaderMeta(GenericScaler):
 
 @dataclass
 class PlaceboShaderBase(PlaceboShaderMeta):
+    """Base placebo shader class."""
+
     chroma_loc: int | None = field(default=None, kw_only=True)
     matrix: int | None = field(default=None, kw_only=True)
     trc: int | None = field(default=None, kw_only=True)
@@ -110,6 +112,8 @@ class PlaceboShader(PlaceboShaderBase):
 
 
 class ShaderFile(ShaderFileBase):
+    """Default shader files shipped with vsscale."""
+
     if not TYPE_CHECKING:
         CUSTOM = 'custom'
 
@@ -129,6 +133,8 @@ class ShaderFile(ShaderFileBase):
         ...
 
     def __call__(self, file_name: str | Path | MissingT = MISSING) -> Path:
+        """Get a path from the shader member, name or path."""
+
         if self is not ShaderFile.CUSTOM:
             return Path(__file__).parent / 'shaders' / self.value
 
@@ -159,6 +165,8 @@ class ShaderFile(ShaderFileBase):
 
 
 class FSRCNNXShader(PlaceboShaderBase):
+    """Defaults FSRCNNX shaders shipped with vsscale."""
+
     shader_file = ShaderFile.FSRCNNX_x56
 
     @dataclass

@@ -30,6 +30,7 @@ __all__ = [
 def get_select_descale(
     clip: vs.VideoNode, descale_attempts: list[DescaleAttempt], mode: DescaleMode
 ) -> tuple[Callable[[list[vs.VideoFrame], int], vs.VideoNode], list[vs.VideoNode]]:
+    """Get callables for FrameEval/ModifyFrame and prop clips for the specified params."""
     clips_by_reskern = {
         attempt.da_hash: attempt
         for attempt in descale_attempts
@@ -182,6 +183,98 @@ def descale(
     shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: bool = False
 ) -> vs.VideoNode | DescaleResult:
+    """
+    A unified and expansive descaling function, includes support for handling
+    fractional resolutions, multi-res, FHD detail masking, and conditional descaling.
+
+    .. warning::
+
+        Only descale if you are absolutely certain you know the correct native resolution(s) and kernel(s)!
+        Wrong rescales will be more destructive than simply AAing/dehaloing instead!
+
+    ``width`` and ``height`` both accept multiple values, allowing you to descale to multiple resolutions
+    in case your source is upscaled from different native resolutions. If ``width`` is not set,
+    it will be auto-calculated using the clip's aspect ratio and given height(s) as reference.
+
+    You can pass a list of :py:class:`vskernels.Kernel` objects, allowing you to handle mixed sources.
+    Common examples include shows that have been upscaled using either SharpBicubic or Spline36 throughout its runtime.
+    If you find yourself working on a SharpBicubic, Spline36, or Lanczos source,
+    consider double-checking other scenes and episodes for any of the other kernels mentioned.
+    **Especially** if you've got either SharpCubic or Spline36!
+
+    For fractional resolution descaling, you can pass the ``src_width`` and ``src_height`` to the kernel(s)
+    passed to the function.
+
+    Conditional descaling can be achieved by making use of ``mode``. Setting a specific mode determines
+    how the condition is applied, and a threshold can be set. If the difference between the descaled
+    and re-upscaled clip (using the same kernel) exceeds the threshold, it will not descale the frame.
+    For more information, please refer to :py:class:`DescaleMode`'s docstring.
+
+    Custom upscalers can be passed as well. If you'd like to write a custom upscaler, make sure
+    you create a class with a ``scale`` method that adheres to the following API:
+
+    ```py
+    class.scale(clip, width, height)
+    ```
+
+    All the results can be returned using ``result``. This will return a :py:class:`DescaleResult` object
+    containing the following attributes:
+
+    * ``descaled`` (descaled clip, can be a variable-resolution clip)
+    * ``rescaled`` (rescaled clip, can be a variable-resolution clip)
+    * ``upscaled`` (upscaled clip)
+    * ``mask`` (Descale error mask)
+    * ``attempts`` (List of :py:class:`DescaleAttempt`s)
+    * ``out`` (Final rescaled, masked, and chroma-merged clip)
+
+    This has multiple applications, like for example needing the mask for post-rescaling masking of credits
+    (like for post-AA, for example), or if you want to do additional filtering while it's descaled.
+
+    :param clip:            Clip to process.
+    :param width:           Width to descale to. Pass a list if your source has multiple native resolutions.
+                            If None, auto-calculates based on the clip's AR and given height(s).
+                            For fractional resolutions, set ``src_width`` in the :py:class:`vskernels.Kernel`.
+                            Make sure you're confident about the native resolution(s) before descaling!
+                            Default: None.
+    :param height:          Height to descale to. Pass a list if your source has multiple native resolutions.
+                            For fractional resolutions, set ``src_height`` in the :py:class:`vskernels.Kernel`.
+                            Make sure you're confident about the native resolution(s) before descaling!
+                            Default: 720.
+    :param kernels:         :py:class:`vskernels.Kernel`s to descale to. Pass a list to enable multi-kernel descaling.
+                            When passing multiple kernels, make sure you use a :py:class:`DescaleMode` that supports it.
+                            Default: :py:class:`vskernels.Catrom`.
+    :param upscaler:        Scaler used for rescaling. A passing scaler can be passed, but it must be a class with
+                            a ``scale`` method that accepts a `clip, width, height`.
+                            Setting this to False will disable upscaling entirely.
+                            Default: :py:class:`vsaa.Nnedi3`.
+    :param mask:            Internal masking function. This can be either a custom mask or a masking function.
+                            Setting this to False will disable masking entirely.
+                            Default: :py:func:`vsscale.mask.descale_detail_mask`.
+    :param mode:            :py:class:`DescaleMode` used to determine how conditional descaling is handled.
+                            For more information, please refer to :py:class:`DescaleMode`'s docstring.
+                            Default: :py:func:`DescaleMode.PlaneDiff(0.0)`.
+    :param dst_width:       Destination width. Set the clip's output width.
+                            If None and a ``dst_height`` is passed, auto-calculate based on
+                            the clip's AR and given ``dst_height``. Else, use the input clip's width.
+                            Default: None.
+    :param dst_height:      Destination height. Set the clip's output height.
+                            If None, use the input clip's height.
+                            Default: None.
+    :param shift:           Shift the clip. Useful for cross-conversions, or if the image was shifted in the upscale.
+                            Default: (0, 0), no shifting.
+    :param scaler:          Scaler used for operations where regular scaling is required (for example,
+                            ``upscaler=None``, for scaling chroma and descale detail mask).
+                            Default: :py:class:`vskernels.Spline144`
+    :param result:          Return the :py:class:`DescaleResult` object.
+                            If False, return the regularly rescaled output.
+                            Default: False.
+
+    :raises ValueError:     Number of given heights and width don't match.
+    :raises ValueError:     No kernel is specified.
+
+    :returns:               Either a rescaled clip (mask applied, chroma readded),
+                            or a :py:class:`DescaleResult` object containing the results from ``descale``.
+    """
     assert clip.format
 
     if isinstance(height, int):
@@ -318,7 +411,7 @@ def mixed_rescale(
     kernel: KernelT = Catrom, downscaler: ScalerT = SSIM,
     credit_mask: vs.VideoNode | GenericMaskT | bool = partial(descale_detail_mask, thr=0.05, inflate=4, xxpand=(4, 2)),
     mix_strength: float = 0.25, show_mask: bool | int = False,
-    # Default settings set to match insaneAA as closely as reasonably possible
+    # Default settings set to match insaneAA as closely and as reasonably possible
     eedi3: SuperSampler = Eedi3(
         alpha=0.2, beta=0.25, gamma=1000, nrad=2, mdis=20, sclip_aa=Nnedi3(nsize=0, nns=4, qual=2, pscrn=1)
     )

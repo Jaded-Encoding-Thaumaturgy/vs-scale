@@ -19,26 +19,27 @@ __all__ = [
 class DescaleAttempt(NamedTuple):
     """Tuple representing a descale attempt."""
 
-    """The native resolution."""
     resolution: Resolution
+    """The native resolution."""
 
-    """Descaled frame in native resolution."""
     descaled: vs.VideoNode
+    """Descaled frame in native resolution."""
 
-    """Descaled frame reupscaled with the same kernel."""
     rescaled: vs.VideoNode
+    """Descaled frame reupscaled with the same kernel."""
 
-    """The subtractive difference between the original and descaled frame."""
     diff: vs.VideoNode
+    """The subtractive difference between the original and descaled frame."""
 
-    """Kernel used"""
     kernel: Kernel
+    """Kernel used"""
 
-    """Hash to identify the descale attempt"""
     da_hash: str
+    """Hash to identify the descale attempt"""
 
     @classmethod
     def get_hash(cls, width: int, height: int, kernel: Kernel) -> str:
+        """Get this descale attempt's unique hash."""
         return f'{width}_{height}_{kernel.__class__.__name__}'
 
     @classmethod
@@ -46,6 +47,8 @@ class DescaleAttempt(NamedTuple):
         cls, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
         kernel: Kernel, mode: DescaleMode, **kwargs: VSMapValue
     ) -> DescaleAttempt:
+        """Get a DescaleAttempt from args. Calculate difference nodes too."""
+
         descaled = kernel.descale(clip, width, height, shift)
         descaled = descaled.std.SetFrameProps(**kwargs)
 
@@ -71,29 +74,33 @@ class DescaleAttempt(NamedTuple):
 
 @dataclass
 class DescaleResult:
-    """Descaled clip, can be var res"""
+    """Dataclass representing a complete result of vsscale.descale."""
+
     descaled: vs.VideoNode
+    """Descaled clip, can be var res"""
 
-    """Rescaled clip, can be var res"""
     rescaled: vs.VideoNode
+    """Rescaled clip, can be var res"""
 
-    """Upscaled clip"""
     upscaled: vs.VideoNode | None
+    """Upscaled clip"""
 
-    """Descale error mask"""
     error_mask: vs.VideoNode | None
+    """Descale error mask"""
 
-    """Post process mask"""
     pproc_mask: vs.VideoNode | None
+    """Post process mask"""
 
-    """Descale attempts used"""
     attempts: list[DescaleAttempt]
+    """Descale attempts used"""
 
-    """Normal output"""
     out: vs.VideoNode
+    """Normal output"""
 
 
 class PlaneStatsKind(CustomStrEnum):
+    """Type of PlaneStats comparing to use."""
+
     AVG = 'Average'
     MIN = 'Min'
     MAX = 'Max'
@@ -103,24 +110,42 @@ class PlaneStatsKind(CustomStrEnum):
 @dataclass
 class DescaleModeMeta:
     thr: float = field(default=5e-8)
+    """Diff threshold."""
+
     op: ComparatorFunc = field(default_factory=lambda: max)
+    """Operator used for generic sorting."""
 
 
 class DescaleMode(DescaleModeMeta, CustomIntEnum):
+    """Descale modes for vsscale.descale."""
+
     PlaneDiff = 0
+    """Simple PlaneStatsDiff between original and descaled."""
+
     PlaneDiffMax = 1
+    """Get the video with the maximum absolute difference from original."""
+
     PlaneDiffMin = 2
+    """Get the video with the minimum absolute difference from original."""
+
     KernelDiff = 3
+    """Simple PlaneStats between original and descaled kernels differences."""
+
     KernelDiffMax = 4
+    """Get the video descaled with the kernel with the maximum absolute difference from original."""
+
     KernelDiffMin = 5
+    """Get the video descaled with the kernel with the minimum absolute difference from original."""
 
     def __call__(self, thr: float = 5e-8) -> DescaleMode:
-        self.thr = thr
+        self.thr = thr  # TODO FIX THIS BECAUSE IT'S A FREAKIN' BUG!!!!!!!!!!!!!!!!
 
         return self
 
     @property
     def prop_key(self) -> str:
+        """Get the props key for this DescaleMode."""
+
         if self.is_average:
             return 'PlaneStatsPAvg'
         elif self.is_kernel_diff:
@@ -130,6 +155,8 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def res_op(self) -> ComparatorFunc:
+        """Get the operator for calculating sort operation between two resolutions."""
+
         if self in {self.PlaneDiff, self.KernelDiff, self.PlaneDiffMax, self.KernelDiffMax}:
             return max
 
@@ -140,6 +167,8 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def diff_op(self) -> ComparatorFunc:
+        """Get the operator for calculating sort operation between two props."""
+
         if self in {self.PlaneDiff, self.KernelDiff, self.PlaneDiffMin, self.KernelDiffMin}:
             return min
 
@@ -150,13 +179,19 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     @property
     def is_average(self) -> bool:
+        """Whether this DescaleMode is of PlaneDiff kind."""
+
         return self in {self.PlaneDiff, self.PlaneDiffMin, self.PlaneDiffMax}
 
     @property
     def is_kernel_diff(self) -> bool:
+        """Whether this DescaleMode is of KernelDiff kind."""
+
         return self in {self.KernelDiff, self.KernelDiffMin, self.KernelDiffMax}
 
     def prop_value(self, kind: PlaneStatsKind) -> str:
+        """Get props key for getting the value of the PlaneStatsKind."""
+
         return f'{self.prop_key}{kind.value}'
 
     def __hash__(self) -> int:

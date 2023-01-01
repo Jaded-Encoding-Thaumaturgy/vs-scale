@@ -38,7 +38,8 @@ def gamma2linear(
     sigmoid: bool = False, thr: float = 0.5, cont: float = 6.5,
     epsilon: float = 1e-6
 ) -> vs.VideoNode:
-    """Convert gamma to linear curve."""
+    """Convert a video with gamma space to linear space."""
+
     assert clip.format
 
     if get_depth(clip) != 32 and clip.format.sample_type != vs.FLOAT:
@@ -60,7 +61,8 @@ def linear2gamma(
     clip: vs.VideoNode, curve: Transfer, gcor: float = 1.0,
     sigmoid: bool = False, thr: float = 0.5, cont: float = 6.5
 ) -> vs.VideoNode:
-    """Convert linear curve to gamma."""
+    """Convert a video with linear space to gamma space."""
+
     assert clip.format
 
     if get_depth(clip) != 32 and clip.format.sample_type != vs.FLOAT:
