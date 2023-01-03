@@ -75,13 +75,7 @@ html_static_path = ['_static']
 autosummary_generate = True
 
 autodoc_mock_imports = [
-    'vapoursynth',
-    'vstools',
-    'vskernels',
-    'vsexprtools',
-    'vsrgtools',
-    'vsmasktools',
-    'vsaa'
+    'vapoursynth'
 ]
 
 # -- Extension configuration -------------------------------------------------
