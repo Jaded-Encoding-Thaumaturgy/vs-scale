@@ -76,7 +76,12 @@ autosummary_generate = True
 
 autodoc_mock_imports = [
     'vapoursynth',
-    'rich'
+    'vstools',
+    'vskernels',
+    'vsexprtools',
+    'vsrgtools',
+    'vsmasktools',
+    'vsaa'
 ]
 
 # -- Extension configuration -------------------------------------------------
