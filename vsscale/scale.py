@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from math import ceil, floor
+from math import ceil, floor, log2
 from typing import Any, Literal
 
-from vsaa import Eedi3, Nnedi3, SuperSampler, masked_clamp_aa
-from vsexprtools import aka_expr_available, expr_func
+from vsexprtools import aka_expr_available, expr_func, norm_expr
 from vskernels import Catrom, Scaler, ScalerT, SetsuCubic
-from vsrgtools import box_blur, gauss_blur, contrasharpening, contrasharpening_dehalo
+from vsrgtools import box_blur, gauss_blur
 from vstools import (
     Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_ref_clip, check_variable, core, depth,
-    fallback, get_depth, get_w, inject_self, vs, expect_bits, padder, DependencyNotFoundError
+    fallback, get_depth, get_w, inject_self, vs, padder, DependencyNotFoundError, KwargsT, get_nvidia_version
 )
 
 from .gamma import gamma2linear, linear2gamma
@@ -214,19 +213,10 @@ class DLISR(GenericScaler):
 
 @dataclass
 class Waifu2x(GenericScaler):
-    """Use Waifu2x neural network to scale clip up."""
+    """Use Waifu2x neural network to scale clips."""
 
-    cuda: bool | Literal['trt'] = True
-    """Whether to run this on cpu, gpu, or use trt technology."""
-
-    opencl: bool = True
-    """Whether to use opencl for the clamping."""
-
-    clamper: type[SuperSampler] | SuperSampler | Literal[False] = Nnedi3
-    """Clamper SuperSampler."""
-
-    aa: VSFunction | bool = False
-    """Whether to clamp and run aa on the upscaled clip."""
+    cuda: bool | Literal['trt'] | None = None
+    """Whether to run this on cpu, gpu, or use trt technology. None will pick the fastest automatically."""
 
     num_streams: int = 1
     """Number of gpu streams for the model."""
@@ -234,8 +224,26 @@ class Waifu2x(GenericScaler):
     fp16: bool = True
     """Whether to use float16 precision if available."""
 
+    device_id: int = 0
+    """Id of the cuda device to use."""
+
     matrix: MatrixT | None = None
     """Input clip's matrix. Set only if necessary."""
+
+    scaler: ScalerT | None = SSIM
+    """Scaler used for scaling operations. Defaults to kernel."""
+
+    tiles: int | tuple[int, int] | None = None
+    """Process in separate tiles instead of the whole frame. Use if [V]RAM limited."""
+
+    tilesize: int | tuple[int, int] | None = None
+    """Manually specify the size of a single tile."""
+
+    overlap: int | tuple[int, int] | None = None
+    """Overlap for reducing blocking artifacts between tile borders."""
+
+    backend_kwargs: KwargsT | None = None
+    """Kwargs passed to create the backend instance."""
 
     @classmethod
     def mod_padding(cls, clip: vs.VideoNode, mod: int = 4, min: int = 4) -> tuple[int, int, int, int]:
@@ -249,75 +257,76 @@ class Waifu2x(GenericScaler):
         except ModuleNotFoundError as e:
             raise DependencyNotFoundError(self.__class__, e)
 
-        if self.cuda is True:
-            self.backend = Backend.ORT_CUDA(num_streams=self.num_streams, fp16=self.fp16)
-        elif self.cuda is False:
-            self.backend = Backend.NCNN_VK(num_streams=self.num_streams, fp16=self.fp16)
+        bkwargs = (self.backend_kwargs or KwargsT()) | KwargsT(
+            num_streams=self.num_streams, fp16=self.fp16, device_id=self.device_id
+        )
+
+        cuda = self.cuda
+
+        if cuda is None:
+            try:
+                core.trt.DeviceProperties(self.device_id)
+                cuda = 'trt'
+            except Exception:
+                cuda = get_nvidia_version() is not None
+
+        if cuda is True:
+            self.backend = Backend.ORT_CUDA(**bkwargs)
+        elif cuda is False:
+            self.backend = Backend.NCNN_VK(**bkwargs)
         else:
-            self.backend = Backend.TRT(num_streams=self.num_streams, fp16=self.fp16)
-
-        if self.scaler is None:
-            self.scaler = SSIM
-
-        if self.clamper and hasattr(self.clamper, 'opencl'):
-            self.clamper = self.clamper.copy(opencl=self.opencl)  # type: ignore
-
-        self._clamper = SuperSampler.ensure_obj(self.clamper, self.__class__) if self.clamper else None
+            self.backend = Backend.TRT(**bkwargs)
 
         super().__post_init__()
 
     @inject_self
     def scale(  # type:ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
-        *, matrix: MatrixT | None = None, **kwargs: Any
+        *, matrix: MatrixT | None = None, tiles: int | tuple[int, int] | None = None,
+        tilesize: int | tuple[int, int] | None = None, overlap: int | tuple[int, int] | None = None,
+        **kwargs: Any
     ) -> vs.VideoNode:
-        output = clip
+        wclip = clip
 
         assert check_variable(clip, self.scale)
 
-        if width > clip.width or height > clip.width:
-            from vsmlrt import Waifu2x
+        if (is_upscale := width > clip.width or height > clip.width):
+            from vsmlrt import Waifu2x, Waifu2xModel
+
+            kwargs.setdefault('tiles', tiles or self.tiles)
+            kwargs.setdefault('tilesize', tilesize or self.tilesize)
+            kwargs.setdefault('overlap', overlap or self.overlap)
 
             if clip.format.color_family is vs.YUV:
                 if not matrix:
                     matrix = Matrix.from_param(matrix or self.matrix, self.__class__) or Matrix.from_video(clip, False)
-                wclip = self._kernel.resample(output, vs.RGBS, Matrix.RGB, matrix)
+                wclip = self._kernel.resample(wclip, vs.RGBS, Matrix.RGB, matrix)
             else:
-                wclip = output
+                wclip = depth(wclip, 32)
 
-            padding = self.mod_padding(wclip)
-            clip32, bits = expect_bits(wclip, 32)
-            dsrgb = padder(clip32.std.Limiter(), *padding)
+                if clip.format.color_family is vs.GRAY:
+                    wclip = wclip.std.ShufflePlanes(0, vs.RGB)
+
+            wclip = wclip.std.Limiter()
+
+            mult = max(int(log2(ceil(size))) for size in (width / wclip.width, height / wclip.height))
+
+            for _ in range(mult):
+                padding = self.mod_padding(wclip)
+
+                padded = padder(wclip, *padding)
+
+                upscaled = Waifu2x(
+                    padded, noise=-1, scale=2, model=Waifu2xModel.cunet, backend=self.backend, **kwargs
+                )
+
+                cropped = upscaled.std.Crop(*(p * 2 for p in padding))
+
+                cfix = norm_expr(cropped, 'x 0.5 255 / +')
+
+                wclip = cfix.std.Limiter()
 
             if clip.format.color_family is vs.GRAY:
-                dsrgb = dsrgb.std.ShufflePlanes(0, vs.RGB)
+                wclip = wclip.std.ShufflePlanes(0, vs.GRAY)
 
-            up = Waifu2x(dsrgb, noise=-1, model=6, backend=self.backend, **kwargs)
-
-            if clip.format.color_family is vs.GRAY:
-                up = up.std.ShufflePlanes(0, vs.GRAY)
-
-            up = up.std.Crop(*(p * 2 for p in padding)).std.Expr('x 0.5 255 / +')
-
-            output = depth(up, bits).std.CopyFrameProps(clip32)
-
-            if self._clamper:
-                ss = self._clamper.scale(wclip, output.width, output.height)
-                output = contrasharpening(output.std.Merge(ss, 3 / 4), ss)
-
-            if self.aa:
-                if self.aa is True:
-                    from vsdehalo import fine_dehalo
-
-                    eedi3 = Eedi3(0.85, 0.15, 400, 3, 10, vcheck=3, opencl=self.opencl)
-                    caa = masked_clamp_aa(output, strength=8.5, strong_aa=eedi3, opencl=self.opencl)
-
-                    fdh = fine_dehalo(
-                        caa, rx=2.4, ry=2.4, brightstr=0.95, darkstr=0.25, lowsens=30,
-                        highsens=80, thma=200, thmi=20, ss=1
-                    )
-                    output = contrasharpening_dehalo(fdh, output, level=1.0, alpha=1.5)
-                elif callable(self.aa):
-                    output = self.aa(output)
-
-        return self._finish_scale(output, wclip, width, height, shift)
+        return self._finish_scale(wclip, clip, width, height, shift, matrix, is_upscale)
