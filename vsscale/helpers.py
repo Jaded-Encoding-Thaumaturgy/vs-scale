@@ -89,9 +89,11 @@ class GenericScaler(Scaler):
 
     def _finish_scale(
         self, clip: vs.VideoNode, input_clip: vs.VideoNode, width: int, height: int,
-        shift: tuple[float, float] = (0, 0), matrix: MatrixT | None = None
+        shift: tuple[float, float] = (0, 0), matrix: MatrixT | None = None,
+        copy_props: bool = False
     ) -> vs.VideoNode:
         assert input_clip.format
+
         if input_clip.format.num_planes == 1:
             clip = plane(clip, 0)
 
@@ -103,10 +105,13 @@ class GenericScaler(Scaler):
 
         assert clip.format
 
-        if clip.format.id == input_clip.format.id:
-            return clip
+        if clip.format.id != input_clip.format.id:
+            clip = self._kernel.resample(clip, input_clip, matrix)
 
-        return self._kernel.resample(clip, input_clip, matrix)
+        if copy_props:
+            return clip.std.CopyFrameProps(input_clip)
+
+        return clip
 
 
 def scale_var_clip(
