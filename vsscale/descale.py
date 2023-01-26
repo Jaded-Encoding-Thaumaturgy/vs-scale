@@ -455,7 +455,7 @@ def mixed_rescale(
     width = width or get_w(height, clip.width / clip.height, 1)
 
     kernel = Kernel.ensure_obj(kernel, mixed_rescale)
-    downscaler = Kernel.ensure_obj(downscaler, mixed_rescale)
+    downscaler = Scaler.ensure_obj(downscaler, mixed_rescale)
 
     bits = get_depth(clip)
     clip_y = get_y(clip)
