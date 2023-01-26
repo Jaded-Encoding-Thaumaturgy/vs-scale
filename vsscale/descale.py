@@ -420,14 +420,16 @@ def mixed_rescale(
     Rewrite of InsaneAA to make it easier to use and maintain.
     Written by LightArrowsEXE, taken from lvsfunc.
 
-    Descales and downscales the given clip and merges them together with a set strength.
+    Descales and downscales the given clip, then merges them together with a set strength
+    and upscales to the source resolution using a given Supersampler.
 
-    This can be useful for dealing with a source that you can't accurately descale,
-    but you still want to force it. Not recommended to use it on everything, however.
+    This can be useful for dealing with a source you can't accurately descale,
+    but forcing one is still preferable for one reason or another.
+    It's not recommended to do this unless you absolutely have to.
 
-    A string can be passed instead of a Kernel object if you want to use that.
-    This gives you access to every kernel object in :py:mod:`vskernels`.
-    For more information on what every kernel does, please refer to their documentation.
+    A string can be passed instead of a Kernel object for convenience.
+    This gives you access to every kernel object available in :py:mod:`vskernels`.
+    For more information on what every kernel does, please refer to their individual documentations.
 
     :param clip:            Clip to process.
     :param width:           Upscale width. If None, determine from `height` (Default: None).
@@ -437,7 +439,7 @@ def mixed_rescale(
                             (Default: py:class:`vskernels.Catrom`).
     :param downscaler:      Kernel or custom scaler used to downscale the clip.
                             This can also be the string name of the kernel
-                            (Default: py:func:`vsscale.ssim_downsample`).
+                            (Default: py:func:`vsscale.SSIM`).
     :param credit_mask:     Function or mask clip used to mask detail. If ``None``, no masking.
                             Function must accept a clip and a reupscaled clip and return a mask.
                             (Default: :py:func:`vsscale.descale_detail_mask`).
