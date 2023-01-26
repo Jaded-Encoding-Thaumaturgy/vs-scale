@@ -412,7 +412,7 @@ def mixed_rescale(
     credit_mask: vs.VideoNode | GenericMaskT | bool = partial(descale_detail_mask, thr=0.05, inflate=4, xxpand=(4, 2)),
     mix_strength: float = 0.25, show_mask: bool | int = False,
     # Default settings set to match insaneAA as closely and as reasonably possible
-    eedi3: SuperSampler = Eedi3(
+    supersampler: SuperSampler | None = Eedi3(
         alpha=0.2, beta=0.25, gamma=1000, nrad=2, mdis=20, sclip_aa=Nnedi3(nsize=0, nns=4, qual=2, pscrn=1)
     )
 ) -> vs.VideoNode:
@@ -446,9 +446,13 @@ def mixed_rescale(
                             Stronger values will make the line-art look closer to the downscaled clip.
                             This can get pretty dangerous very quickly if you use a sharp ``downscaler``!
     :param show_mask:       Return the ``credit_mask``. If set to `2`, it will return the line-art mask instead.
-    :param eedi3:           Eedi3 instance that will be used for supersampling.
+    :param supersampler:    Supersampler object used for supersampling the mixed descale.
+                            If `None`, simply returns the mixed descale clip.
+                            Default: Eedi3.
 
-    :return:                Rescaled clip with a downscaled clip merged with it and credits masked.
+    :return:                Rescaled clip with a downscaled clip merged with it and credits masked,
+                            one of the masks used if `show_mask` is not False, or the mixed descale
+                            if `supersampler` is None.
     """
     assert check_variable(clip, mixed_rescale)
 
@@ -481,7 +485,10 @@ def mixed_rescale(
     elif show_mask:
         return detail_mask or core.std.BlankClip(length=clip.num_frames)
 
-    double = eedi3.scale(merged, clip.width * 2, clip.height * 2)
+    if supersampler is None:
+        return merged
+
+    double = supersampler.scale(merged, clip.width * 2, clip.height * 2)
     rescaled = SSIM.scale(double, clip.width, clip.height)
 
     rescaled = depth(rescaled, bits)
