@@ -50,7 +50,7 @@ class DPID(GenericScaler):
         if isinstance(self.ref, vs.VideoNode):
             check_ref_clip(clip, self.ref)  # type: ignore
             ref = self.ref  # type: ignore
-            scaler = self.scaler
+            scaler = Scaler.ensure_obj(self.scaler, self.__class__)
         else:
             scaler = Scaler.ensure_obj(self.ref, self.__class__)
 
