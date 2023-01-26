@@ -6,7 +6,7 @@ from math import ceil, floor, log2
 from typing import Any, Literal
 
 from vsexprtools import aka_expr_available, expr_func, norm_expr
-from vskernels import Catrom, Scaler, ScalerT, SetsuCubic
+from vskernels import Catrom, Scaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_ref_clip, check_variable, core, depth,
@@ -35,7 +35,7 @@ class DPID(GenericScaler):
     of only the most distinct pixels.
     """
 
-    ref: vs.VideoNode | ScalerT | None = None
+    ref: vs.VideoNode | ScalerT = ZewiaCubic
     """VideoNode or Scaler to obtain the downscaled reference for DPID."""
 
     planes: PlanesT = None
@@ -50,8 +50,9 @@ class DPID(GenericScaler):
         if isinstance(self.ref, vs.VideoNode):
             check_ref_clip(clip, self.ref)  # type: ignore
             ref = self.ref  # type: ignore
-
-        scaler = Scaler.ensure_obj(self.ref if isinstance(self.ref, Scaler) else self.scaler, self.__class__)
+            scaler = self.scaler
+        else:
+            scaler = Scaler.ensure_obj(self.ref, self.__class__)
 
         if (ref.width, ref.height) != (width, height):
             ref = scaler.scale(ref, width, height)
