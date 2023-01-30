@@ -373,7 +373,7 @@ def descale(
         clip_y = scaler.scale(clip_y, dest_width, dest_height)
 
         if error_mask:
-            error_mask = normalize_mask(error_mask, clip_y, upscaled)
+            error_mask = normalize_mask(error_mask, clip_y, rescaled)
             error_mask = scaler.scale(error_mask, dest_width, dest_height)
 
             upscaled = upscaled.std.MaskedMerge(clip_y, error_mask)
@@ -400,7 +400,7 @@ def descale(
 
     if result:
         return DescaleResult(
-            descaled, rescaled, upscaled, error_mask, pproc_mask, descale_attempts, out
+            descaled, rescaled, upscaled, error_mask, pproc_mask, descale_attempts, out  # type: ignore
         )
 
     return out
