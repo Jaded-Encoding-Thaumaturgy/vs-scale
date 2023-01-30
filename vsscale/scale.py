@@ -113,7 +113,7 @@ class SSIM(GenericScaler):
     def scale(  # type: ignore[override]
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         smooth: int | float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
-        curve: Transfer | bool = False, sigmoid: bool = False
+        curve: Transfer | bool = False, sigmoid: bool = False, **kwargs: Any
     ) -> vs.VideoNode:
         assert check_variable(clip, self.scale)
 
@@ -139,11 +139,11 @@ class SSIM(GenericScaler):
         if curve:
             clip = gamma2linear(clip, curve, sigmoid=sigmoid, epsilon=self.epsilon)
 
-        l1 = self._scaler.scale(clip, width, height, shift)
+        l1 = self._scaler.scale(clip, width, height, shift, **kwargs)
 
         l1_sq, c_sq = [expr_func(x, 'x dup *') for x in (l1, clip)]
 
-        l2 = self._scaler.scale(c_sq, width, height, shift)
+        l2 = self._scaler.scale(c_sq, width, height, shift, **kwargs)
 
         m, sl_m_square, sh_m_square = [filter_func(x) for x in (l1, l1_sq, l2)]
 
