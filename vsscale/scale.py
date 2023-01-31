@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from math import ceil, floor, log2
 from typing import Any, Literal
@@ -180,7 +180,7 @@ def ssim_downsample(
 class DLISR(GenericScaler):
     """Use Nvidia NGX Technology DLISR DNN to scale up nodes. https://developer.nvidia.com/rtx/ngx"""
 
-    scaler: ScalerT = DPID(0.5, SetsuCubic)
+    scaler: ScalerT = field(default_factory=lambda: DPID(0.5, SetsuCubic))
     """Scaler to use to downscale clip to desired resolution, if necessary."""
 
     matrix: MatrixT | None = None
