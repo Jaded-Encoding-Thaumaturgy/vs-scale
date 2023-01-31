@@ -52,7 +52,7 @@ class DPID(GenericScaler):
             ref = self.ref  # type: ignore
             scaler = Scaler.ensure_obj(self.scaler, self.__class__)
         else:
-            scaler = Scaler.ensure_obj(self.ref, self.__class__)
+            scaler = Scaler.ensure_obj(self.ref, self.__class__)  # type: ignore
 
         if (ref.width, ref.height) != (width, height):
             ref = scaler.scale(ref, width, height)
