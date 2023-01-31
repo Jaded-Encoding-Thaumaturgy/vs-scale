@@ -31,14 +31,9 @@ def get_select_descale(
     clip: vs.VideoNode, descale_attempts: list[DescaleAttempt], mode: DescaleMode
 ) -> tuple[Callable[[list[vs.VideoFrame], int], vs.VideoNode], list[vs.VideoNode]]:
     """Get callables for FrameEval/ModifyFrame and prop clips for the specified params."""
-    clips_by_reskern = {
-        attempt.da_hash: attempt
-        for attempt in descale_attempts
-    }
-
     curr_clip = clip
     main_kernel = descale_attempts[0].kernel.__class__.__name__
-    attempts_by_idx = list(clips_by_reskern.values())
+    attempts_by_idx = list(dict.fromkeys(descale_attempts).keys())
 
     threshold = mode.thr
     res_operator = mode.res_op

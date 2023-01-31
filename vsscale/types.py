@@ -34,14 +34,6 @@ class DescaleAttempt(NamedTuple):
     kernel: Kernel
     """Kernel used"""
 
-    da_hash: str
-    """Hash to identify the descale attempt"""
-
-    @classmethod
-    def get_hash(cls, width: int, height: int, kernel: Kernel) -> str:
-        """Get this descale attempt's unique hash."""
-        return f'{width}_{height}_{kernel.__class__.__name__}'
-
     @classmethod
     def from_args(
         cls, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
@@ -59,17 +51,16 @@ class DescaleAttempt(NamedTuple):
         )
 
         if mode in {DescaleMode.KernelDiff, DescaleMode.KernelDiffMin, DescaleMode.KernelDiffMax}:
-            diff_props = rescaled.std.PlaneStats(
-                clip, prop=DescaleMode.KernelDiff.prop_key
-            )
+            diff_props = rescaled.std.PlaneStats(clip, prop=DescaleMode.KernelDiff.prop_key)
 
             diff = merge_clip_props(diff, diff_props)
 
         resolution = Resolution(width, height)
 
-        return DescaleAttempt(
-            resolution, descaled, rescaled, diff, kernel, cls.get_hash(width, height, kernel)
-        )
+        return DescaleAttempt(resolution, descaled, rescaled, diff, kernel)
+
+    def __hash__(self) -> int:
+        return hash(f'{self.resolution}_{self.kernel.__class__.__name__}')
 
 
 @dataclass
