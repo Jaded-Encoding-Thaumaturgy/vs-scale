@@ -12,7 +12,8 @@ from vstools import (
 
 __all__ = [
     'Resolution', 'DescaleAttempt',
-    'DescaleMode', 'DescaleResult', 'PlaneStatsKind'
+    'DescaleMode', 'DescaleResult', 'PlaneStatsKind',
+    'DescaleModeWithInfo'
 ]
 
 
@@ -37,7 +38,7 @@ class DescaleAttempt(NamedTuple):
     @classmethod
     def from_args(
         cls, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float],
-        kernel: Kernel, mode: DescaleMode, **kwargs: VSMapValue
+        kernel: Kernel, mode: DescaleModeWithInfo, **kwargs: VSMapValue
     ) -> DescaleAttempt:
         """Get a DescaleAttempt from args. Calculate difference nodes too."""
 
@@ -50,7 +51,7 @@ class DescaleAttempt(NamedTuple):
             None, prop=DescaleMode.PlaneDiff.prop_key
         )
 
-        if mode in {DescaleMode.KernelDiff, DescaleMode.KernelDiffMin, DescaleMode.KernelDiffMax}:
+        if mode.mode in {DescaleMode.KernelDiff, DescaleMode.KernelDiffMin, DescaleMode.KernelDiffMax}:
             diff_props = rescaled.std.PlaneStats(clip, prop=DescaleMode.KernelDiff.prop_key)
 
             diff = merge_clip_props(diff, diff_props)
@@ -98,16 +99,7 @@ class PlaneStatsKind(CustomStrEnum):
     DIFF = 'Diff'
 
 
-@dataclass
-class DescaleModeMeta:
-    thr: float = field(default=5e-8)
-    """Diff threshold."""
-
-    op: ComparatorFunc = field(default_factory=lambda: max)
-    """Operator used for generic sorting."""
-
-
-class DescaleMode(DescaleModeMeta, CustomIntEnum):
+class DescaleMode(CustomIntEnum):
     """Descale modes for vsscale.descale."""
 
     PlaneDiff = 0
@@ -128,10 +120,8 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
     KernelDiffMin = 5
     """Get the video descaled with the kernel with the minimum absolute difference from original."""
 
-    def __call__(self, thr: float = 5e-8) -> DescaleMode:
-        self.thr = thr  # TODO FIX THIS BECAUSE IT'S A FREAKIN' BUG!!!!!!!!!!!!!!!!
-
-        return self
+    def __call__(self, thr: float = 5e-8, op: ComparatorFunc | None = None) -> DescaleModeWithInfo:
+        return DescaleModeWithInfo(self, thr) if op is None else DescaleModeWithInfo(self, thr, op)
 
     @property
     def prop_key(self) -> str:
@@ -187,3 +177,15 @@ class DescaleMode(DescaleModeMeta, CustomIntEnum):
 
     def __hash__(self) -> int:
         return hash(self._name_)
+
+
+@dataclass
+class DescaleModeWithInfo:
+    mode: DescaleMode
+    """Actual descale mode"""
+
+    thr: float = field(default=5e-8)
+    """Diff threshold."""
+
+    op: ComparatorFunc = field(default_factory=lambda: max)
+    """Operator used for generic sorting."""
