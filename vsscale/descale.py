@@ -7,16 +7,16 @@ from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Eedi3, Nnedi3, SuperSampler
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
-from vsmasktools import Prewitt, GenericMaskT, normalize_mask
+from vsmasktools import GenericMaskT, Prewitt, normalize_mask
 from vstools import (
-    CustomValueError, FieldBased, FieldBasedT, FuncExceptT, check_variable, core, depth, get_depth, get_h, get_prop,
-    get_w, get_y, join, normalize_seq, split, vs
+    CustomValueError, FieldBased, FieldBasedT, FuncExceptT, check_variable, core, depth, expect_bits, get_depth, get_h,
+    get_prop, get_w, get_y, join, normalize_seq, split, vs
 )
 
 from .helpers import scale_var_clip
 from .mask import descale_detail_mask
 from .scale import SSIM
-from .types import DescaleAttempt, DescaleMode, DescaleResult, PlaneStatsKind, DescaleModeWithInfo
+from .types import DescaleAttempt, DescaleMode, DescaleModeWithInfo, DescaleResult, PlaneStatsKind
 
 __all__ = [
     'get_select_descale', 'descale',
@@ -307,8 +307,7 @@ def descale(
 
     work_clip, *chroma = split(clip)
 
-    bit_depth = get_depth(clip)
-    clip_y = work_clip.resize.Point(format=vs.GRAYS)
+    clip_y, bit_depth = expect_bits(work_clip, 32)
 
     max_kres_len = max(len(norm_kernels), len(norm_resolutions))
 
