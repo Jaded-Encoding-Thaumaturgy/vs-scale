@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from math import ceil, floor, log2
 from typing import Any, Literal
 
 from vsexprtools import aka_expr_available, expr_func, norm_expr
-from vskernels import Catrom, Scaler, ScalerT, SetsuCubic
+from vskernels import Catrom, Scaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_ref_clip, check_variable, core, depth,
@@ -35,7 +35,7 @@ class DPID(GenericScaler):
     of only the most distinct pixels.
     """
 
-    ref: vs.VideoNode | ScalerT | None = None
+    ref: vs.VideoNode | ScalerT = ZewiaCubic
     """VideoNode or Scaler to obtain the downscaled reference for DPID."""
 
     planes: PlanesT = None
@@ -50,8 +50,9 @@ class DPID(GenericScaler):
         if isinstance(self.ref, vs.VideoNode):
             check_ref_clip(clip, self.ref)  # type: ignore
             ref = self.ref  # type: ignore
-
-        scaler = Scaler.ensure_obj(self.ref if isinstance(self.ref, Scaler) else self.scaler, self.__class__)
+            scaler = Scaler.ensure_obj(self.scaler, self.__class__)
+        else:
+            scaler = Scaler.ensure_obj(self.ref, self.__class__)  # type: ignore
 
         if (ref.width, ref.height) != (width, height):
             ref = scaler.scale(ref, width, height)
@@ -112,7 +113,7 @@ class SSIM(GenericScaler):
     def scale(  # type: ignore[override]
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         smooth: int | float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
-        curve: Transfer | bool = False, sigmoid: bool = False
+        curve: Transfer | bool = False, sigmoid: bool = False, **kwargs: Any
     ) -> vs.VideoNode:
         assert check_variable(clip, self.scale)
 
@@ -138,11 +139,11 @@ class SSIM(GenericScaler):
         if curve:
             clip = gamma2linear(clip, curve, sigmoid=sigmoid, epsilon=self.epsilon)
 
-        l1 = self._scaler.scale(clip, width, height, shift)
+        l1 = self._scaler.scale(clip, width, height, shift, **kwargs)
 
         l1_sq, c_sq = [expr_func(x, 'x dup *') for x in (l1, clip)]
 
-        l2 = self._scaler.scale(c_sq, width, height, shift)
+        l2 = self._scaler.scale(c_sq, width, height, shift, **kwargs)
 
         m, sl_m_square, sh_m_square = [filter_func(x) for x in (l1, l1_sq, l2)]
 
@@ -179,7 +180,7 @@ def ssim_downsample(
 class DLISR(GenericScaler):
     """Use Nvidia NGX Technology DLISR DNN to scale up nodes. https://developer.nvidia.com/rtx/ngx"""
 
-    scaler: ScalerT = DPID(0.5, SetsuCubic)
+    scaler: ScalerT = field(default_factory=lambda: DPID(0.5, SetsuCubic))
     """Scaler to use to downscale clip to desired resolution, if necessary."""
 
     matrix: MatrixT | None = None

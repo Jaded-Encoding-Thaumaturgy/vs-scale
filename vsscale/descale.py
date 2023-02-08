@@ -9,13 +9,13 @@ from vsaa import Nnedi3
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
 from vsmasktools import GenericMaskT, normalize_mask
 from vstools import (
-    CustomValueError, FieldBased, FieldBasedT, FuncExceptT, core, depth, get_depth, get_h, get_prop, get_w, get_y, join,
-    normalize_seq, split, vs
+    CustomValueError, FieldBased, FieldBasedT, FuncExceptT, core, depth, expect_bits, get_h, get_prop, get_w, get_y,
+    join, normalize_seq, split, vs
 )
 
 from .helpers import scale_var_clip
 from .mask import descale_detail_mask
-from .types import DescaleAttempt, DescaleMode, DescaleResult, PlaneStatsKind
+from .types import DescaleAttempt, DescaleMode, DescaleModeWithInfo, DescaleResult, PlaneStatsKind
 
 __all__ = [
     'get_select_descale', 'descale',
@@ -25,21 +25,16 @@ __all__ = [
 
 
 def get_select_descale(
-    clip: vs.VideoNode, descale_attempts: list[DescaleAttempt], mode: DescaleMode
+    clip: vs.VideoNode, descale_attempts: list[DescaleAttempt], mode: DescaleModeWithInfo
 ) -> tuple[Callable[[list[vs.VideoFrame], int], vs.VideoNode], list[vs.VideoNode]]:
     """Get callables for FrameEval/ModifyFrame and prop clips for the specified params."""
-    clips_by_reskern = {
-        attempt.da_hash: attempt
-        for attempt in descale_attempts
-    }
-
     curr_clip = clip
     main_kernel = descale_attempts[0].kernel.__class__.__name__
-    attempts_by_idx = list(clips_by_reskern.values())
+    attempts_by_idx = list(dict.fromkeys(descale_attempts).keys())
 
     threshold = mode.thr
-    res_operator = mode.res_op
-    diff_operator = mode.diff_op
+    res_operator = mode.mode.res_op
+    diff_operator = mode.mode.diff_op
 
     res_props_key = DescaleMode.PlaneDiff.prop_value(PlaneStatsKind.AVG)
     diff_prop_key = DescaleMode.KernelDiff.prop_value(PlaneStatsKind.DIFF)
@@ -61,7 +56,7 @@ def get_select_descale(
 
         return best_attempt.descaled, diff_vals, best_res
 
-    if mode.is_average:
+    if mode.mode.is_average:
         clips_indices = list(range(len(diff_clips)))
 
         if threshold <= 0.0:
@@ -75,7 +70,7 @@ def get_select_descale(
                     return curr_clip
 
                 return best_attempt
-    elif mode.is_kernel_diff:
+    elif mode.mode.is_kernel_diff:
         group_by_kernel = {
             key: list(grouped) for key, grouped in groupby(
                 enumerate(attempts_by_idx), lambda x: x[1].kernel.__class__.__name__
@@ -144,7 +139,7 @@ def descale(  # type: ignore
     mask: GenericMaskT | Literal[False] | tuple[
         GenericMaskT | Literal[False] | None, GenericMaskT
     ] = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
+    mode: DescaleMode | DescaleModeWithInfo = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
     shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: Literal[False] = False
@@ -160,7 +155,7 @@ def descale(
     mask: GenericMaskT | Literal[False] | tuple[
         GenericMaskT | Literal[False] | None, GenericMaskT
     ] = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
+    mode: DescaleMode | DescaleModeWithInfo = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
     shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: Literal[True] = True
@@ -175,7 +170,7 @@ def descale(
     mask: GenericMaskT | Literal[False] | tuple[
         GenericMaskT | Literal[False] | None, GenericMaskT
     ] = descale_detail_mask,
-    mode: DescaleMode = DescaleMode.PlaneDiff(0.0),
+    mode: DescaleMode | DescaleModeWithInfo = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
     shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
     result: bool = False
@@ -309,14 +304,15 @@ def descale(
 
     work_clip, *chroma = split(clip)
 
-    bit_depth = get_depth(clip)
-    clip_y = work_clip.resize.Point(format=vs.GRAYS)
+    clip_y, bit_depth = expect_bits(work_clip, 32)
 
     max_kres_len = max(len(norm_kernels), len(norm_resolutions))
 
     kernel_combinations = list[tuple[Kernel, tuple[int, int]]](zip(*(
         normalize_seq(x, max_kres_len) for x in (norm_kernels, norm_resolutions)  # type: ignore
     )))
+
+    mode = mode if isinstance(mode, DescaleModeWithInfo) else mode()
 
     descale_attempts = [
         DescaleAttempt.from_args(
@@ -370,7 +366,7 @@ def descale(
         clip_y = scaler.scale(clip_y, dest_width, dest_height)
 
         if error_mask:
-            error_mask = normalize_mask(error_mask, clip_y, upscaled)
+            error_mask = normalize_mask(error_mask, clip_y, rescaled)
             error_mask = scaler.scale(error_mask, dest_width, dest_height)
 
             upscaled = upscaled.std.MaskedMerge(clip_y, error_mask)
@@ -397,7 +393,7 @@ def descale(
 
     if result:
         return DescaleResult(
-            descaled, rescaled, upscaled, error_mask, pproc_mask, descale_attempts, out
+            descaled, rescaled, upscaled, error_mask, pproc_mask, descale_attempts, out  # type: ignore
         )
 
     return out
