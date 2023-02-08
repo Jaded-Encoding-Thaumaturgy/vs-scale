@@ -5,23 +5,20 @@ from itertools import groupby
 from math import log2
 from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
-from vsaa import Eedi3, Nnedi3, SuperSampler
+from vsaa import Nnedi3
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
-from vsmasktools import GenericMaskT, Prewitt, normalize_mask
+from vsmasktools import GenericMaskT, normalize_mask
 from vstools import (
-    CustomValueError, FieldBased, FieldBasedT, FuncExceptT, check_variable, core, depth, expect_bits, get_depth, get_h,
-    get_prop, get_w, get_y, join, normalize_seq, split, vs
+    CustomValueError, FieldBased, FieldBasedT, FuncExceptT, core, depth, expect_bits, get_h, get_prop, get_w, get_y,
+    join, normalize_seq, split, vs
 )
 
 from .helpers import scale_var_clip
 from .mask import descale_detail_mask
-from .scale import SSIM
 from .types import DescaleAttempt, DescaleMode, DescaleModeWithInfo, DescaleResult, PlaneStatsKind
 
 __all__ = [
     'get_select_descale', 'descale',
-
-    'mixed_rescale',
 
     'descale_fields'
 ]
@@ -400,101 +397,6 @@ def descale(
         )
 
     return out
-
-
-def mixed_rescale(
-    clip: vs.VideoNode, width: None | int = None, height: int = 720,
-    kernel: KernelT = Catrom, downscaler: ScalerT = SSIM,
-    credit_mask: vs.VideoNode | GenericMaskT | bool = partial(descale_detail_mask, thr=0.05, inflate=4, xxpand=(4, 2)),
-    mix_strength: float = 0.25, show_mask: bool | int = False,
-    # Default settings set to match insaneAA as closely and as reasonably possible
-    eedi3: SuperSampler = Eedi3(
-        alpha=0.2, beta=0.25, gamma=1000, nrad=2, mdis=20, sclip_aa=Nnedi3(nsize=0, nns=4, qual=2, pscrn=1)
-    )
-) -> vs.VideoNode:
-    """
-    Rewrite of InsaneAA to make it easier to use and maintain.
-    Written by LightArrowsEXE, taken from lvsfunc.
-
-    Descales and downscales the given clip, then merges them together with a set strength
-    and upscales to the source resolution using a given Supersampler.
-
-    This can be useful for dealing with a source you can't accurately descale,
-    but forcing one is still preferable for one reason or another.
-    It's not recommended to do this unless you absolutely have to.
-
-    A string can be passed instead of a Kernel object for convenience.
-    This gives you access to every kernel object available in :py:mod:`vskernels`.
-    For more information on what every kernel does, please refer to their individual documentations.
-
-    :param clip:            Clip to process.
-    :param width:           Upscale width. If None, determine from `height` (Default: None).
-    :param height:          Upscale height (Default: 720).
-    :param kernel:          py:class:`vskernels.Kernel` object used for the descaling.
-                            This can also be the string name of the kernel
-                            (Default: py:class:`vskernels.Catrom`).
-    :param downscaler:      Kernel or custom scaler used to downscale the clip.
-                            This can also be the string name of the kernel
-                            (Default: py:func:`vsscale.SSIM`).
-    :param credit_mask:     Function or mask clip used to mask detail. If ``None``, no masking.
-                            Function must accept a clip and a reupscaled clip and return a mask.
-                            (Default: :py:func:`vsscale.descale_detail_mask`).
-    :param mask_thr:        Binarization threshold for :py:func:`vsscale.descale_detail_mask` (Default: 0.05).
-    :param mix_strength:    Merging strength between the descaled and downscaled clip.
-                            Stronger values will make the line-art look closer to the downscaled clip.
-                            This can get pretty dangerous very quickly if you use a sharp ``downscaler``!
-    :param show_mask:       Return the ``credit_mask``. If set to `2`, it will return the line-art mask instead.
-    :param eedi3:           Eedi3 instance that will be used for supersampling.
-
-    :return:                Rescaled clip with a downscaled clip merged with it and credits masked.
-    """
-    assert check_variable(clip, mixed_rescale)
-
-    width = width or get_w(height, clip.width / clip.height, 1)
-
-    kernel = Kernel.ensure_obj(kernel, mixed_rescale)
-    downscaler = Scaler.ensure_obj(downscaler, mixed_rescale)
-
-    bits = get_depth(clip)
-    clip_y = get_y(clip)
-
-    line_mask = clip_y.std.Prewitt(scale=2).std.Maximum().std.Limiter()
-
-    descaled = kernel.descale(clip_y, width, height)
-    upscaled = kernel.scale(descaled, clip.width, clip.height)
-
-    downscaled = downscaler.scale(clip_y, width, height)
-
-    merged = core.akarin.Expr([descaled, downscaled], f'x {mix_strength} * y 1 {mix_strength} - * +')
-
-    if credit_mask:
-        detail_mask = normalize_mask(
-            Prewitt if credit_mask is True else credit_mask, clip_y, upscaled
-        ).std.Limiter()
-    else:
-        detail_mask = None
-
-    if show_mask == 2:
-        return line_mask
-    elif show_mask:
-        return detail_mask or core.std.BlankClip(length=clip.num_frames)
-
-    double = eedi3.scale(merged, clip.width * 2, clip.height * 2)
-    rescaled = SSIM.scale(double, clip.width, clip.height)
-
-    rescaled = depth(rescaled, bits)
-
-    if detail_mask:
-        masked = rescaled.std.MaskedMerge(clip_y, detail_mask)
-    else:
-        masked = rescaled
-
-    masked = clip_y.std.MaskedMerge(masked, line_mask)
-
-    if clip.format.num_planes == 1:
-        return masked
-
-    return core.std.ShufflePlanes([masked, clip], planes=[0, 1, 2], colorfamily=vs.YUV)
 
 
 def descale_fields(
