@@ -62,7 +62,7 @@ class DPID(GenericScaler):
             'src_left': shift[1], 'src_top': shift[0]
         } | kwargs | {'read_chromaloc': True}
 
-        return core.dpid.DpidRaw(clip, ref, **kwargs)
+        return core.dpid.DpidRaw(clip, ref, **kwargs)  # type: ignore
 
 
 @dataclass

@@ -110,7 +110,7 @@ def descale_error_mask(
 
     for scaled_thr in scaled_thrs[1:]:
         bin2 = error.std.Binarize(scaled_thr)
-        error = bin2.misc.Hysteresis(error)  # type: ignore
+        error = bin2.misc.Hysteresis(error)
 
     if exp3:
         error = Morpho.expand(error, exp2, mode=XxpandMode.ELLIPSE)
