@@ -26,10 +26,10 @@ __all__ = [
 class MergeScalers(GenericScaler):
     def __init__(self, *scalers: ScalerT | tuple[ScalerT, float | None]) -> None:
         """Create a unified Scaler from multiple Scalers with optional weights."""
-        if (l := len(scalers)) < 2:
-            raise CustomIndexError(f'Not enough scalers passed! ({l})', self.__class__)
-        elif len(scalers) > len(EXPR_VARS):
-            raise CustomIndexError(f'Too many scalers passed! ({l})', self.__class__)
+        if (slen := len(scalers)) < 2:
+            raise CustomIndexError('Not enough scalers passed!', self.__class__, slen)
+        elif slen > len(EXPR_VARS):
+            raise CustomIndexError('Too many scalers passed!', self.__class__, slen)
 
         if any(isinstance(s, tuple) for s in scalers):
             norm_scalers = [
