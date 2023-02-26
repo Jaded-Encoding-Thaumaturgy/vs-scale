@@ -136,7 +136,12 @@ class SSIM(GenericScaler):
 
         bits, clip = get_depth(clip), depth(clip, 32)
 
+        convert_csp = None
+
         if curve:
+            if clip.format and clip.format.color_family is not vs.RGB:
+                convert_csp = (Matrix.from_transfer(curve), clip.format)
+                clip = self._kernel.resample(clip, vs.RGBS, None, convert_csp[0])
             clip = gamma2linear(clip, curve, sigmoid=sigmoid, epsilon=self.epsilon)
 
         l1 = self._scaler.scale(clip, width, height, shift, **kwargs)
@@ -158,6 +163,9 @@ class SSIM(GenericScaler):
 
         if curve:
             d = linear2gamma(d, curve, sigmoid=sigmoid)
+
+        if convert_csp is not None:
+            d = self._kernel.resample(d, convert_csp[1], convert_csp[0])
 
         return depth(d, bits)
 
