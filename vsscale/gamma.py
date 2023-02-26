@@ -27,8 +27,8 @@ def _sigmoid_x(sigmoid: bool, cont: float, thr: float) -> tuple[str, str, str]:
     return header, x0, x1
 
 
-def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer, sigmoid: bool) -> vs.VideoNode:
-    linear = norm_expr(clip, f'{header} {expr} {ExprOp.clamp(0, 1)}', planes=0 if sigmoid else None)
+def _clamp_converted(clip: vs.VideoNode, header: str, expr: str, curve: Transfer) -> vs.VideoNode:
+    linear = norm_expr(clip, f'{header} {expr} {ExprOp.clamp(0, 1)}')
 
     return linear.std.SetFrameProps(_Transfer=curve.value)
 
@@ -54,7 +54,7 @@ def gamma2linear(
     if sigmoid:
         expr = f'{thr} 1 {expr} {x1} {x0} - * {x0} + {epsilon} max / 1 - {epsilon} max log {cont} / -'
 
-    return _clamp_converted(clip, header, expr, Transfer.LINEAR, sigmoid)
+    return _clamp_converted(clip, header, expr, Transfer.LINEAR)
 
 
 def linear2gamma(
@@ -83,4 +83,4 @@ def linear2gamma(
 
     expr = f'{lin} {c.k0} {c.phi} / <= {lin} {c.phi} * {lin} 1 {c.gamma} / pow {c.alpha} 1 + * {c.alpha} - ?'
 
-    return _clamp_converted(clip, header, expr, curve, sigmoid)
+    return _clamp_converted(clip, header, expr, curve)
