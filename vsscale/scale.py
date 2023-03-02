@@ -239,9 +239,6 @@ class Waifu2x(GenericScaler):
     matrix: MatrixT | None = None
     """Input clip's matrix. Set only if necessary."""
 
-    scaler: ScalerT | None = SSIM
-    """Scaler used for scaling operations. Defaults to kernel."""
-
     tiles: int | tuple[int, int] | None = None
     """Process in separate tiles instead of the whole frame. Use if [V]RAM limited."""
 
