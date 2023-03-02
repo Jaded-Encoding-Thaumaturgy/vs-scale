@@ -52,7 +52,7 @@ class GenericScaler(Scaler):
 
     def __post_init__(self) -> None:
         self._kernel = Kernel.ensure_obj(self.kernel, self.__class__)
-        self._scaler = self._kernel.ensure_obj(self.scaler, self.__class__)
+        self._scaler = Scaler.ensure_obj(self.scaler or self._kernel, self.__class__)
         self._shifter = Kernel.ensure_obj(
             self.shifter or (self._scaler if isinstance(self._scaler, Kernel) else Catrom), self.__class__
         )
