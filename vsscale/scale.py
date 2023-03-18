@@ -5,7 +5,7 @@ from functools import partial
 from math import ceil, floor, log2
 from typing import Any, Literal
 
-from vsexprtools import aka_expr_available, expr_func, norm_expr
+from vsexprtools import complexpr_available, expr_func, norm_expr
 from vskernels import Catrom, Scaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
@@ -152,7 +152,7 @@ class SSIM(GenericScaler):
 
         m, sl_m_square, sh_m_square = [filter_func(x) for x in (l1, l1_sq, l2)]
 
-        if aka_expr_available:
+        if complexpr_available:
             merge_expr = f'z dup * SQ! x SQ@ - SQD! SQD@ {self.epsilon} < 0 y SQ@ - SQD@ / sqrt ?'
         else:
             merge_expr = f'x z dup * - {self.epsilon} < 0 y z dup * - x z dup * - / sqrt ?'

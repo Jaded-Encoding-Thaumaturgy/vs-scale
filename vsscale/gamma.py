@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from vsexprtools import ExprOp, aka_expr_available, norm_expr
+from vsexprtools import ExprOp, complexpr_available, norm_expr
 from vstools import CustomValueError, MatrixCoefficients, Transfer, get_depth, vs
 
 __all__ = [
@@ -20,7 +20,7 @@ def _sigmoid_x(sigmoid: bool, cont: float, thr: float) -> tuple[str, str, str]:
 
     header, x0, x1 = '', _linear_diff(cont, thr), _linear_diff(cont, thr, '1')
 
-    if aka_expr_available:
+    if complexpr_available:
         header = f'{x0} SX0! {x1} SX1!'
         x0, x1 = 'SX0@', 'SX1@'
 
@@ -77,7 +77,7 @@ def linear2gamma(
     else:
         lin = f'x {gcor} pow'
 
-    if aka_expr_available:
+    if complexpr_available:
         header = f'{header} {lin} LIN!'
         lin = 'LIN@'
 
