@@ -10,7 +10,7 @@ from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
 from vsmasktools import GenericMaskT, normalize_mask
 from vstools import (
     CustomValueError, FieldBased, FieldBasedT, FuncExceptT, core, depth, expect_bits, get_h, get_prop, get_w, get_y,
-    join, normalize_seq, split, vs
+    join, normalize_seq, split, to_arr, vs
 )
 
 from .helpers import scale_var_clip
@@ -288,11 +288,8 @@ def descale(
     else:
         dest_width, dest_height = clip.width, clip.height
 
-    if not isinstance(kernels, Sequence):
-        kernels = [kernels]
-
     norm_resolutions = list(zip(widths, heights))
-    norm_kernels = [Kernel.ensure_obj(kernel, descale) for kernel in kernels]
+    norm_kernels = [Kernel.ensure_obj(kernel, descale) for kernel in to_arr(kernels)]
 
     scaler = Scaler.ensure_obj(scaler, descale)
 
