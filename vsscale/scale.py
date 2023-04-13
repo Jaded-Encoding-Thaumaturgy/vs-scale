@@ -277,9 +277,20 @@ class Waifu2x(GenericScaler):
                 cuda = get_nvidia_version() is not None
 
         if cuda is True:
-            self.backend = Backend.ORT_CUDA(**bkwargs)
+            if hasattr(core, 'ort'):
+                self.backend = Backend.ORT_CUDA(**bkwargs)
+            else:
+                self.backend = Backend.OV_GPU(**bkwargs)
         elif cuda is False:
-            self.backend = Backend.NCNN_VK(**bkwargs)
+            if hasattr(core, 'ncnn'):
+                self.backend = Backend.NCNN_VK(**bkwargs)
+            else:
+                bkwargs.pop('device_id')
+
+                if hasattr(core, 'ort'):
+                    self.backend = Backend.ORT_CPU(**bkwargs)
+                else:
+                    self.backend = Backend.OV_CPU(**bkwargs)
         else:
             self.backend = Backend.TRT(**bkwargs)
 
