@@ -227,7 +227,7 @@ class Waifu2x(GenericScaler):
     cuda: bool | Literal['trt'] | None = None
     """Whether to run this on cpu, gpu, or use trt technology. None will pick the fastest automatically."""
 
-    num_streams: int = 1
+    num_streams: int | None = None
     """Number of gpu streams for the model."""
 
     fp16: bool = True
@@ -263,18 +263,40 @@ class Waifu2x(GenericScaler):
         except ModuleNotFoundError as e:
             raise DependencyNotFoundError(self.__class__, e)
 
-        bkwargs = (self.backend_kwargs or KwargsT()) | KwargsT(
-            num_streams=self.num_streams, fp16=self.fp16, device_id=self.device_id
-        )
+        bkwargs = (self.backend_kwargs or KwargsT()) | KwargsT(fp16=self.fp16, device_id=self.device_id)
 
         cuda = self.cuda
 
+        # All this will eventually be in vs-nn
         if cuda is None:
             try:
-                core.trt.DeviceProperties(self.device_id)
+                data: KwargsT = core.trt.DeviceProperties(self.device_id)  # type: ignore
+                memory = data.get('total_global_memory', 0)
+                def_num_streams = data.get('async_engine_count', 1)
+
                 cuda = 'trt'
+
+                bkwargs = KwargsT(
+                    workspace=memory / (1 << 22) if memory else None,
+                    use_cuda_graph=True, use_cublas=True, use_cudnn=True,
+                    use_edge_mask_convolutions=True, use_jit_convolutions=True,
+                    static_shape=True, heuristic=True, output_format=int(self.fp16),
+                    tf32=not self.fp16, force_fp16=self.fp16, num_streams=def_num_streams
+                ) | bkwargs
+
+                streams_info = 'OK' if bkwargs['num_streams'] == def_num_streams else 'MISMATCH'
+
+                core.log_message(
+                    vs.MESSAGE_TYPE_DEBUG,
+                    f'Selected [{data.get("name", b"<unknown>").decode("utf8")}] '
+                    f'with {f"{(memory / (1 << 30))}GiB" if memory else "<unknown>"} of VRAM, '
+                    f'num_streams={def_num_streams} ({streams_info})'
+                )
             except Exception:
                 cuda = get_nvidia_version() is not None
+
+        if bkwargs.get('num_streams', None) is None:
+            bkwargs.update(num_streams=fallback(self.num_streams, 1))
 
         if cuda is True:
             if hasattr(core, 'ort'):
@@ -307,6 +329,9 @@ class Waifu2x(GenericScaler):
 
         assert check_variable(clip, self.scale)
 
+        is_gray = clip.format.color_family is vs.GRAY
+        planes = 0 if is_gray else None
+
         if (is_upscale := width > clip.width or height > clip.width):
             from vsmlrt import Waifu2x, Waifu2xModel
 
@@ -317,14 +342,17 @@ class Waifu2x(GenericScaler):
             if clip.format.color_family is vs.YUV:
                 if not matrix:
                     matrix = Matrix.from_param(matrix or self.matrix, self.__class__) or Matrix.from_video(clip, False)
-                wclip = self._kernel.resample(wclip, vs.RGBS, Matrix.RGB, matrix)
+                wclip = self._kernel.resample(wclip, vs.RGBH if self.fp16 else vs.RGBS, Matrix.RGB, matrix)
             else:
-                wclip = depth(wclip, 32)
+                wclip = depth(wclip, 16 if self.fp16 else 32, vs.FLOAT)
 
-                if clip.format.color_family is vs.GRAY:
+                if is_gray:
                     wclip = wclip.std.ShufflePlanes(0, vs.RGB)
 
-            wclip = wclip.std.Limiter()
+            try:
+                wclip = wclip.std.Limiter()
+            except vs.Error:
+                wclip = norm_expr(wclip, 'x 0 1 clamp', planes=planes)
 
             mult = max(int(log2(ceil(size))) for size in (width / wclip.width, height / wclip.height))
 
@@ -339,11 +367,12 @@ class Waifu2x(GenericScaler):
 
                 cropped = upscaled.std.Crop(*(p * 2 for p in padding))
 
-                cfix = norm_expr(cropped, 'x 0.5 255 / +')
+                try:
+                    wclip = norm_expr(cropped, 'x 0.5 255 / + 0 1 clamp', planes=planes)
+                except RuntimeError:
+                    wclip = norm_expr(depth(cropped, 32), 'x 0.5 255 / + 0 max 1 min', planes=planes)
 
-                wclip = cfix.std.Limiter()
-
-            if clip.format.color_family is vs.GRAY:
+            if is_gray:
                 wclip = wclip.std.ShufflePlanes(0, vs.GRAY)
 
         return self._finish_scale(wclip, clip, width, height, shift, matrix, is_upscale)
