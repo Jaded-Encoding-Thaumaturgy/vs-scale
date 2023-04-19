@@ -318,26 +318,21 @@ class Waifu2x(GenericScaler):
 
         super().__post_init__()
 
-    @inject_self
+    @inject_self.init_kwargs.clean
     def scale(  # type:ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
-        *, matrix: MatrixT | None = None, tiles: int | tuple[int, int] | None = None,
-        tilesize: int | tuple[int, int] | None = None, overlap: int | tuple[int, int] | None = None,
-        **kwargs: Any
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
         wclip = clip
 
         assert check_variable(clip, self.scale)
 
+        matrix = self.matrix
         is_gray = clip.format.color_family is vs.GRAY
         planes = 0 if is_gray else None
+        kwargs.update(tiles=self.tiles, tilesize=self.tilesize, overlap=self.overlap)
 
         if (is_upscale := width > clip.width or height > clip.width):
             from vsmlrt import Waifu2x, Waifu2xModel
-
-            kwargs.setdefault('tiles', tiles or self.tiles)
-            kwargs.setdefault('tilesize', tilesize or self.tilesize)
-            kwargs.setdefault('overlap', overlap or self.overlap)
 
             if clip.format.color_family is vs.YUV:
                 if not matrix:
