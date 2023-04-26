@@ -345,7 +345,7 @@ class Waifu2x(GenericScaler):
                     wclip = wclip.std.ShufflePlanes(0, vs.RGB)
 
             try:
-                wclip = wclip.std.Limiter()
+                wclip = wclip.std.Limiter(planes=planes)
             except vs.Error:
                 wclip = norm_expr(wclip, 'x 0 1 clamp', planes=planes)
 
