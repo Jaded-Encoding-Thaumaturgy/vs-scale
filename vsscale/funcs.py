@@ -10,7 +10,8 @@ from vskernels import Scaler, ScalerT
 from vsmasktools import ringing_mask
 from vsrgtools import LimitFilterMode, RepairMode, limit_filter, median_clips, repair, unsharp_masked
 from vstools import (
-    EXPR_VARS, ColorRange, CustomIndexError, CustomOverflowError, P, check_ref_clip, inject_self, scale_8bit, vs
+    EXPR_VARS, ColorRange, CustomIndexError, CustomOverflowError, P, check_ref_clip, inject_self, scale_8bit,
+    scale_value, vs
 )
 
 from .helpers import GenericScaler
@@ -137,7 +138,7 @@ class ClampScaler(GenericScaler):
     ) -> vs.VideoNode:
         assert (self.undershoot or self.undershoot == 0) and (self.overshoot or self.overshoot == 0)
 
-        fsrcnnx = self._ref_scaler.scale(clip, width, height, shift, **kwargs)
+        ref = self._ref_scaler.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
             smooth = self.reference  # type: ignore
@@ -149,15 +150,15 @@ class ClampScaler(GenericScaler):
 
         assert smooth
 
-        check_ref_clip(fsrcnnx, smooth)
+        check_ref_clip(ref, smooth)
 
         range_out = ColorRange.from_video(clip, False) if self.range_out is None else self.range_out
 
-        fsr_weight = self.strength / 100
+        merge_weight = self.strength / 100
 
         if self.limit is True:
             expression = [
-                'x {fsr_weight} * y {ref_weight} * + up!',
+                'x {merge_weight} * y {ref_weight} * + up!',
                 '{overshoot} O!', '{undershoot} U!',
                 'up@ z O@ + > z O@ + up@ ? a U@ - < a U@ - up@ z O@ + > z O@ + up@ ? ?'
             ]
@@ -166,19 +167,20 @@ class ClampScaler(GenericScaler):
                 expression.append(f'{scale_8bit(clip, 16)} {{clamp_max}} clamp')
 
             merged = norm_expr(
-                [fsrcnnx, smooth, smooth.std.Maximum(), smooth.std.Minimum()],
-                expression, fsr_weight=fsr_weight, ref_weight=1.0 - fsr_weight,
-                undershoot=self.undershoot * (2 ** 8), overshoot=self.overshoot * (2 ** 8),
+                [ref, smooth, smooth.std.Maximum(), smooth.std.Minimum()],
+                expression, merge_weight=merge_weight, ref_weight=1.0 - merge_weight,
+                undershoot=scale_value(self.undershoot, clip),
+                overshoot=scale_value(self.overshoot, clip),
                 clamp_max=[scale_8bit(clip, 235), scale_8bit(clip, 240)]
             )
         else:
-            merged = smooth.std.Merge(fsrcnnx, fsr_weight)
+            merged = smooth.std.Merge(ref, merge_weight)
 
             if isinstance(self.limit, RepairMode):
                 merged = repair(merged, smooth, self.limit)
 
         if self.operator is not None:
-            merge2 = combine([smooth, fsrcnnx], ExprOp.MIN)
+            merge2 = combine([smooth, ref], ExprOp.MIN)
 
             if self.masked:
                 merged = merged.std.MaskedMerge(merge2, ringing_mask(smooth))
