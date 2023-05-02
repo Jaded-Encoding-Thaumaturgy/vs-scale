@@ -33,7 +33,7 @@ class DescaleAttempt(NamedTuple):
     """The subtractive difference between the original and descaled frame."""
 
     kernel: Kernel
-    """Kernel used"""
+    """Kernel used for descaling."""
 
     @classmethod
     def from_args(
@@ -69,25 +69,38 @@ class DescaleResult:
     """Dataclass representing a complete result of vsscale.descale."""
 
     descaled: vs.VideoNode
-    """Descaled clip, can be var res"""
+    """The descaled clip. Can be a variable resolution."""
 
     rescaled: vs.VideoNode
-    """Rescaled clip, can be var res"""
+    """
+    The descaled clip reupscaled to the source resolution using the same kernel used to descale.
+    Can be a variable resolution clip.
+    """
 
     upscaled: vs.VideoNode | None
-    """Upscaled clip"""
+    """The descaled clip reupscaled using the given upscaler."""
 
     error_mask: vs.VideoNode | None
-    """Descale error mask"""
+    """
+    The descale error mask. This catches the big differences
+    between the source clip and the rescaled clip as a mask.
+    If no \"mask\" is passed, this attribute will be None.
+    """
 
     pproc_mask: vs.VideoNode | None
-    """Post process mask"""
+    """
+    The post-processing mask. This is the second mask passed to \"mask\".
+    If no \"mask\" is passed, this attribute will be None.
+    """
 
     attempts: list[DescaleAttempt]
-    """Descale attempts used"""
+    """
+    Descale attempts made. These are used to determine
+    the correct kernel if multiple \"Kernels\" were passed.
+    """
 
     out: vs.VideoNode
-    """Normal output"""
+    """The final clip that is returned during regular usage with \"result=False\"."""
 
 
 class PlaneStatsKind(CustomStrEnum):
@@ -182,7 +195,7 @@ class DescaleMode(CustomIntEnum):
 @dataclass
 class DescaleModeWithInfo:
     mode: DescaleMode
-    """Actual descale mode"""
+    """Actual descale mode used for descaling."""
 
     thr: float = field(default=5e-8)
     """Diff threshold."""
