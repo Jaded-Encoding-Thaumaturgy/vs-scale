@@ -264,7 +264,7 @@ def descale(
     :raises ValueError:     Number of given heights and width don't match.
     :raises ValueError:     No kernel is specified.
 
-    :returns:               Either a rescaled clip (mask applied, chroma readded),
+    :returns:               Either a rescaled clip (mask applied, chroma re-added),
                             or a :py:class:`DescaleResult` object containing the results from ``descale``.
     """
     assert clip.format
