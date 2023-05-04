@@ -6,11 +6,11 @@ from math import ceil, floor, log2
 from typing import Any, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
-from vskernels import Catrom, Scaler, ScalerT, SetsuCubic, ZewiaCubic
+from vskernels import Scaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
-    Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_ref_clip, check_variable, core, depth,
-    fallback, get_depth, get_w, inject_self, vs, padder, DependencyNotFoundError, KwargsT, get_nvidia_version
+    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_ref_clip, check_variable,
+    core, depth, fallback, get_depth, get_nvidia_version, inject_self, padder, vs
 )
 
 from .gamma import gamma2linear, linear2gamma
@@ -18,7 +18,7 @@ from .helpers import GenericScaler
 
 __all__ = [
     'DPID',
-    'SSIM', 'ssim_downsample',
+    'SSIM',
     'DLISR',
     'Waifu2x'
 ]
@@ -168,20 +168,6 @@ class SSIM(GenericScaler):
             d = self._kernel.resample(d, convert_csp[1], convert_csp[0])
 
         return depth(d, bits)
-
-
-def ssim_downsample(
-    clip: vs.VideoNode, width: int | None = None, height: int = 720,
-    smooth: int | float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
-    scaler: ScalerT = Catrom,
-    curve: Transfer | bool = False, sigmoid: bool = False,
-    shift: tuple[float, float] = (0, 0), epsilon: float = 1e-6
-) -> vs.VideoNode:
-    import warnings
-    warnings.warn("ssim_downsample is deprecated! You should use SSIM directly!", DeprecationWarning)
-    return SSIM(epsilon=epsilon, scaler=scaler).scale(
-        clip, fallback(width, get_w(height, clip)), height, shift, smooth, curve, sigmoid
-    )
 
 
 @dataclass
