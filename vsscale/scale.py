@@ -279,6 +279,8 @@ class Waifu2x(GenericScaler):
                     f'num_streams={def_num_streams} ({streams_info})'
                 )
             except Exception:
+                self.fp16 = False
+                bkwargs['fp16'] = False
                 cuda = get_nvidia_version() is not None
 
         if bkwargs.get('num_streams', None) is None:
