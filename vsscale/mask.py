@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from vsexprtools import ExprOp, average_merge, combine, norm_expr
+from vsexprtools import ExprOp, average_merge, norm_expr
 from vskernels import Catrom
 from vsmasktools import Morpho, XxpandMode
 from vsrgtools import box_blur, gauss_blur
-from vstools import (
-    core, get_depth, get_neutral_value, get_peak_value, get_y, iterate, scale_value, shift_clip_multi, split, vs
-)
+from vstools import core, get_y, iterate, shift_clip_multi, split, vs
 
 __all__ = [
     'descale_detail_mask', 'descale_error_mask'
@@ -37,7 +35,7 @@ def descale_detail_mask(
     """
     mask = norm_expr([get_y(clip), get_y(rescaled)], 'x y - abs')
 
-    mask = mask.std.Binarize(thr * get_peak_value(mask))
+    mask = Morpho.binarize(mask, thr)
 
     if xxpand[0]:
         mask = iterate(mask, core.std.Maximum if xxpand[0] > 0 else core.std.Minimum, xxpand[0])
@@ -53,7 +51,7 @@ def descale_detail_mask(
 
 def descale_error_mask(
     clip: vs.VideoNode, rescaled: vs.VideoNode,
-    thr: float | list[float] = 0.38,
+    thr: float | list[float] = 0.038,
     expands: int | tuple[int, int, int] = (2, 2, 3),
     blur: int | float = 3, bwbias: int = 1, tr: int = 1
 ) -> vs.VideoNode:
@@ -74,20 +72,16 @@ def descale_error_mask(
 
     y, *chroma = split(clip)
 
-    bit_depth = get_depth(clip)
-    neutral = get_neutral_value(clip)
-
     error = norm_expr([y, rescaled], 'x y - abs')
 
     if bwbias > 1 and chroma:
-        chroma_abs = norm_expr(chroma, f'x {neutral} - abs y {neutral} - abs max')
-        chroma_abs = Catrom().scale(chroma_abs, y.width, y.height)
+        chroma_abs = norm_expr(chroma, 'x range_half - abs y range_half - abs max')
+        chroma_abs = Catrom.scale(chroma_abs, y.width, y.height)
 
-        tv_low, tv_high = scale_value(16, 8, bit_depth), scale_value(235, 8, bit_depth)
-        bias = norm_expr([y, chroma_abs], f'x {tv_high} >= x {tv_low} <= or y 0 = and {bwbias} 1 ?')
+        bias = norm_expr([y, chroma_abs], f'x ymax >= x ymin <= or y 0 = and {bwbias} 1 ?')
         bias = Morpho.expand(bias, 2)
 
-        error = norm_expr([error, bias], 'x y *')
+        error = ExprOp.MUL(error, bias)
 
     if isinstance(expands, int):
         exp1 = exp2 = exp3 = expands
@@ -101,28 +95,21 @@ def descale_error_mask(
     if exp2:
         error = Morpho.expand(error, exp2, mode=XxpandMode.ELLIPSE)
 
-    scaled_thrs = [
-        scale_value(val / 10, 32, bit_depth)
-        for val in ([thr] if isinstance(thr, float) else thr)
-    ]
+    thrs = [thr] if isinstance(thr, float) else thr
 
-    error = error.std.Binarize(scaled_thrs[0])
+    error = Morpho.binarize(error, thrs[0])
 
-    for scaled_thr in scaled_thrs[1:]:
-        bin2 = error.std.Binarize(scaled_thr)
+    for scaled_thr in thrs[1:]:
+        bin2 = Morpho.binarize(error, scaled_thr)
         error = bin2.misc.Hysteresis(error)
 
     if exp3:
         error = Morpho.expand(error, exp2, mode=XxpandMode.ELLIPSE)
 
     if tr > 1:
-        avg = average_merge(*shift_clip_multi(error, (-tr, tr))).std.Binarize(neutral)
+        avg = Morpho.binarize(average_merge(*shift_clip_multi(error, (-tr, tr))), 0.5)
 
-        _error = combine([error, avg], ExprOp.MIN)
-        shifted = shift_clip_multi(_error, (-tr, tr))
-        _error = combine(shifted, ExprOp.MAX)
-
-        error = combine([error, _error], ExprOp.MIN)
+        error = ExprOp.MIN(error, ExprOp.MAX(shift_clip_multi(ExprOp.MIN(error, avg), (-tr, tr))))
 
     if isinstance(blur, int):
         error = box_blur(error, blur)
