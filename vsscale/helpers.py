@@ -38,7 +38,7 @@ class GenericScaler(Scaler):
     to use that as a Scaler in functions taking that.
     """
 
-    kernel: KernelT = field(default_factory=lambda: Catrom, kw_only=True)
+    kernel: KernelT | None = field(default=None, kw_only=True)
     """
     Base kernel to be used for certain scaling/shifting/resampling operations.
     Must be specified and defaults to catrom
@@ -51,7 +51,7 @@ class GenericScaler(Scaler):
     """Kernel used for shifting operations. Defaults to kernel."""
 
     def __post_init__(self) -> None:
-        self._kernel = Kernel.ensure_obj(self.kernel, self.__class__)
+        self._kernel = Kernel.ensure_obj(self.kernel or Catrom, self.__class__)
         self._scaler = Scaler.ensure_obj(self.scaler or self._kernel, self.__class__)
         self._shifter = Kernel.ensure_obj(
             self.shifter or (self._scaler if isinstance(self._scaler, Kernel) else Catrom), self.__class__
