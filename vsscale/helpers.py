@@ -2,17 +2,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import partial
+from math import ceil, floor
 from typing import Any, Callable, Protocol
 
 from vsaa import Nnedi3
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
-from vstools import F_VD, MatrixT, get_w, plane, vs
+from vstools import F_VD, MatrixT, fallback, get_w, mod2, plane, vs
 
 from .types import Resolution
 
 __all__ = [
     'GenericScaler',
-    'scale_var_clip'
+    'scale_var_clip',
+    'fdescale_args'
 ]
 
 
@@ -197,3 +199,36 @@ def scale_var_clip(
         out_clip = clip.std.BlankClip(width, height)
 
     return out_clip.std.FrameEval(_eval_scale, clip, clip)
+
+
+def fdescale_args(
+    clip: vs.VideoNode, src_height: float,
+    base_height: int | None = None, base_width: int | None = None,
+    mode: str = 'wh'
+) -> tuple[dict[str, float], dict[str, float]]:
+    base_height = fallback(base_height, mod2(ceil(src_height)))
+    base_width = fallback(base_width, get_w(base_height, clip, 2))
+
+    src_width = src_height * clip.width / clip.height
+
+    cropped_width = base_width - 2 * floor((base_width - src_width) / 2)
+    cropped_height = base_height - 2 * floor((base_height - src_height) / 2)
+
+    do_w, do_h = 'w' in mode.lower(), 'h' in mode.lower()
+
+    de_args = dict(
+        width=cropped_width if do_w else clip.width,
+        height=cropped_height if do_h else clip.height
+    )
+
+    up_args = dict()
+
+    if do_w:
+        de_args.update(src_width=src_width, src_left=(cropped_width - src_width) / 2)
+        up_args.update(src_width=src_width * 2, src_left=cropped_width - src_width)
+
+    if do_h:
+        de_args.update(src_height=src_height, src_top=(cropped_height - src_height) / 2)
+        up_args.update(src_height=src_height * 2, src_top=cropped_height - src_height)
+
+    return de_args, up_args
