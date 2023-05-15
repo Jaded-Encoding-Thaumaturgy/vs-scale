@@ -108,7 +108,7 @@ class ClampScaler(GenericScaler):
     masked: bool = True
     """Whether to mask with a ringing mask or not."""
 
-    reference: ScalerT | vs.VideoNode = field(default_factory=lambda: Nnedi3(0, opencl=None))
+    reference: ScalerT | vs.VideoNode = Nnedi3
     """Reference Scaler used to clamp ref_scaler"""
 
     range_out: ColorRange | None = None
