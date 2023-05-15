@@ -113,6 +113,27 @@ class GenericScaler(Scaler):
 
         return clip
 
+    def ensure_scaler(self, scaler: ScalerT) -> Scaler:
+        from dataclasses import is_dataclass, replace
+
+        scaler_obj = Scaler.ensure_obj(scaler, self.__class__)
+
+        if is_dataclass(scaler_obj):
+            kwargs = dict()
+
+            if hasattr(scaler_obj, 'kernel'):
+                kwargs.update(kernel=self.kernel or scaler_obj.kernel)
+
+            if hasattr(scaler_obj, 'scaler'):
+                kwargs.update(scaler=self.scaler or scaler_obj.scaler)
+
+            if hasattr(scaler_obj, 'shifter'):
+                kwargs.update(shifter=self.shifter or scaler_obj.shifter)
+
+            scaler_obj = replace(scaler_obj, **kwargs)
+
+        return scaler_obj
+
 
 def scale_var_clip(
     clip: vs.VideoNode,

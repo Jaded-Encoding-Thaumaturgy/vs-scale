@@ -68,10 +68,8 @@ class MergeScalers(GenericScaler):
             norm_scalers = [(scaler, weight) for scaler in scalers]  # type: ignore
 
         self.scalers = [
-            (
-                Scaler.ensure_obj(scaler, self.__class__),
-                float(weight if weight else 0)
-            ) for scaler, weight in norm_scalers
+            (self.ensure_scaler(scaler), float(weight if weight else 0))
+            for scaler, weight in norm_scalers
         ]
 
     def scale(  # type: ignore
@@ -129,8 +127,6 @@ class ClampScaler(GenericScaler):
         if self.undershoot is None:
             self.undershoot = self.overshoot
 
-        self._ref_scaler = Scaler.ensure_obj(self.ref_scaler, self.__class__)
-
     @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
@@ -138,7 +134,7 @@ class ClampScaler(GenericScaler):
     ) -> vs.VideoNode:
         assert (self.undershoot or self.undershoot == 0) and (self.overshoot or self.overshoot == 0)
 
-        ref = self._ref_scaler.scale(clip, width, height, shift, **kwargs)
+        ref = self.ensure_scaler(self.ref_scaler).scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
             smooth = self.reference  # type: ignore
@@ -146,7 +142,7 @@ class ClampScaler(GenericScaler):
             if shift != (0, 0):
                 smooth = self._kernel.shift(smooth, shift)  # type: ignore
         else:
-            smooth = Scaler.ensure_obj(self.reference, self.__class__).scale(clip, width, height, shift)  # type: ignore
+            smooth = self.ensure_scaler(self.reference).scale(clip, width, height, shift)  # type: ignore
 
         assert smooth
 
@@ -217,7 +213,7 @@ class UnsharpLimitScaler(GenericScaler):
         self.merge_mode = merge_mode
 
         self.reference = reference
-        self.ref_scaler = Scaler.ensure_obj(ref_scaler, self.__class__)
+        self.ref_scaler = self.ensure_scaler(ref_scaler)
 
         self.args = args
         self.kwargs = kwargs
@@ -235,7 +231,7 @@ class UnsharpLimitScaler(GenericScaler):
             if shift != (0, 0):
                 smooth = self._kernel.shift(smooth, shift)  # type: ignore
         else:
-            smooth = Scaler.ensure_obj(self.reference, self.__class__).scale(clip, width, height, shift)  # type: ignore
+            smooth = self.ensure_scaler(self.reference).scale(clip, width, height, shift)  # type: ignore
 
         assert smooth
 
