@@ -88,9 +88,8 @@ def descale_error_mask(
     else:
         exp1, exp2, exp3 = expands
 
-    assert exp1
-
-    error = Morpho.expand(error, exp1)
+    if exp1:
+        error = Morpho.expand(error, exp1)
 
     if exp2:
         error = Morpho.expand(error, exp2, mode=XxpandMode.ELLIPSE)
