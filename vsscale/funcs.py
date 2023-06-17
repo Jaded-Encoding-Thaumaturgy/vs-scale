@@ -176,7 +176,7 @@ class ClampScaler(GenericScaler):
                 merged = repair(merged, smooth, self.limit)
 
         if self.operator is not None:
-            merge2 = combine([smooth, ref], ExprOp.MIN)
+            merge2 = combine([smooth, ref], self.operator)
 
             if self.masked:
                 merged = merged.std.MaskedMerge(merge2, ringing_mask(smooth))
