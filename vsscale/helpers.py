@@ -124,18 +124,23 @@ class GenericScaler(Scaler):
         scaler_obj = Scaler.ensure_obj(scaler, self.__class__)
 
         if is_dataclass(scaler_obj):
+            from inspect import Signature
+
             kwargs = dict()
 
-            if hasattr(scaler_obj, 'kernel'):
+            init_keys = Signature.from_callable(scaler_obj.__init__).parameters.keys()
+
+            if 'kernel' in init_keys:
                 kwargs.update(kernel=self.kernel or scaler_obj.kernel)
 
-            if hasattr(scaler_obj, 'scaler'):
+            if 'scaler' in init_keys:
                 kwargs.update(scaler=self.scaler or scaler_obj.scaler)
 
-            if hasattr(scaler_obj, 'shifter'):
+            if 'shifter' in init_keys:
                 kwargs.update(shifter=self.shifter or scaler_obj.shifter)
 
-            scaler_obj = replace(scaler_obj, **kwargs)
+            if kwargs:
+                scaler_obj = replace(scaler_obj, **kwargs)
 
         return scaler_obj
 
