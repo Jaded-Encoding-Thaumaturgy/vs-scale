@@ -232,10 +232,14 @@ class ScalingArgs:
 
         return clip.height / self.base_clip.height, clip.width / self.base_clip.width
 
-    def kwargs(self, clip: vs.VideoNode | None = None) -> KwargsT:
+    def kwargs(self, clip_or_rate: vs.VideoNode | float | None = None, /) -> KwargsT:
         kwargs = KwargsT()
         do_h, do_w = self._do()
-        up_rate_h, up_rate_w = self._up_rate(clip)
+        up_rate_h, up_rate_w = (
+            self._up_rate(clip_or_rate)
+            if clip_or_rate is None or isinstance(clip_or_rate, vs.VideoNode) else
+            (clip_or_rate, clip_or_rate)
+        )
 
         if do_h:
             kwargs.update(
@@ -250,6 +254,9 @@ class ScalingArgs:
             )
 
         return kwargs
+
+    def descale(self, kernel: type[Kernel], clip: vs.VideoNode | None = None) -> vs.VideoNode:
+        return kernel.descale(clip, self.width, self.height, **self.kwargs())
 
 
 def descale_args(
