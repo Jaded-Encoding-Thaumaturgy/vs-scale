@@ -230,7 +230,12 @@ class ScalingArgs:
 
         assert self.base_clip
 
-        return clip.height / self.base_clip.height, clip.width / self.base_clip.width
+        do_h, do_w = self._do()
+
+        return (
+            (clip.height / self.height) if do_h else 1.0,
+            (clip.width / self.width) if do_w else 1.0
+        )
 
     def kwargs(self, clip_or_rate: vs.VideoNode | float | None = None, /) -> KwargsT:
         kwargs = KwargsT()
@@ -256,7 +261,17 @@ class ScalingArgs:
         return kwargs
 
     def descale(self, kernel: type[Kernel], clip: vs.VideoNode | None = None) -> vs.VideoNode:
-        return kernel.descale(clip, self.width, self.height, **self.kwargs())
+        if not clip:
+            clip = self.base_clip
+
+        do_h, do_w = self._do()
+
+        return kernel.descale(
+            clip,
+            self.width if do_w else clip.width,
+            self.height if do_h else clip.height,
+            **self.kwargs()
+        )
 
 
 def descale_args(
