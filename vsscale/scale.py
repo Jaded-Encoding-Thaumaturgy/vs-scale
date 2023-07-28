@@ -98,12 +98,14 @@ class SSIM(GenericScaler):
     Can be specified with for example `curve=TransferCurve.BT709`.
     """
 
-    sigmoid: bool | None = None
+    sigmoid: bool | float | tuple[float, float] | None = None
     """When True, applies a sigmoidal curve after the power-like curve
     (or before when converting from linear to gamma-corrected).
     This helps reduce the dark halo artefacts found around sharp edges
     caused by resizing in linear luminance.
-    This parameter only works if `gamma=True`.
+    It can be a float or a tuple of two float values.
+    When float or first value, it specifies the sigmoid slope. (cont)
+    The second value specifies the sigmoid center for the curve. (thr)
     """
 
     epsilon: float = 1e-6
@@ -113,7 +115,7 @@ class SSIM(GenericScaler):
     def scale(  # type: ignore[override]
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
         smooth: int | float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
-        curve: Transfer | bool = False, sigmoid: bool = False, **kwargs: Any
+        curve: Transfer | bool = False, sigmoid: bool | float | tuple[float, float] = False, **kwargs: Any
     ) -> vs.VideoNode:
         assert check_variable(clip, self.scale)
 
@@ -127,6 +129,18 @@ class SSIM(GenericScaler):
             filter_func = partial(box_blur, radius=smooth)
         elif isinstance(smooth, float):
             filter_func = partial(gauss_blur, sigma=smooth)
+
+        sigmoid_kwargs = KwargsT(epsilon=self.epsilon)
+
+        if isinstance(sigmoid, bool):
+            sigmoid_kwargs.update(sigmoid=bool(sigmoid))
+        else:
+            if isinstance(sigmoid, tuple):
+                sig_cont, sig_thr = sigmoid
+            else:
+                sig_cont, sig_thr = sigmoid, 0.5
+
+            sigmoid_kwargs.update(sigmoid=True, cont=sig_cont, thr=sig_thr)
 
         if curve is True:
             try:
@@ -142,7 +156,7 @@ class SSIM(GenericScaler):
             if clip.format and clip.format.color_family is not vs.RGB:
                 convert_csp = (Matrix.from_transfer(curve), clip.format)
                 clip = self._kernel.resample(clip, vs.RGBS, None, convert_csp[0])
-            clip = gamma2linear(clip, curve, sigmoid=sigmoid, epsilon=self.epsilon)
+            clip = gamma2linear(clip, curve, **sigmoid_kwargs)
 
         l1 = self._scaler.scale(clip, width, height, shift, **kwargs)
 
@@ -162,7 +176,7 @@ class SSIM(GenericScaler):
         d = expr_func([filter_func(m), filter_func(r), l1, filter_func(t)], 'x y z * + a -')
 
         if curve:
-            d = linear2gamma(d, curve, sigmoid=sigmoid)
+            d = linear2gamma(d, curve, **sigmoid_kwargs)
 
         if convert_csp is not None:
             d = self._kernel.resample(d, convert_csp[1], convert_csp[0])
