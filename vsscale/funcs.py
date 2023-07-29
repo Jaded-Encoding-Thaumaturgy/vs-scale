@@ -50,9 +50,9 @@ class MergeScalers(GenericScaler):
                 else:
                     curr_sum += weight
 
-            if curr_sum >= 1.0:
+            if curr_sum > 1.0:
                 raise CustomOverflowError(
-                    'Sum of the weights should be less than 1.0!', self.__class__
+                    'Sum of the weights should be less or equal than 1.0!', self.__class__
                 )
 
             if n_auto_weight:
