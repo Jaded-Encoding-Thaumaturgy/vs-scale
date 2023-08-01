@@ -263,9 +263,14 @@ class Waifu2x(GenericScaler):
         except ModuleNotFoundError as e:
             raise DependencyNotFoundError(self.__class__, e)
 
-        bkwargs = (self.backend_kwargs or KwargsT()) | KwargsT(fp16=self.fp16, device_id=self.device_id)
-
         cuda = self.cuda
+
+        if cuda is True:
+            self.fp16 = False
+        elif self.fp16:
+            self.fp16 = complexpr_available.fp16
+
+        bkwargs = (self.backend_kwargs or KwargsT()) | KwargsT(fp16=self.fp16, device_id=self.device_id)
 
         # All this will eventually be in vs-nn
         if cuda is None:
