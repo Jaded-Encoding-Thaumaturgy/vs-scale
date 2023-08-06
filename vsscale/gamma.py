@@ -59,7 +59,8 @@ def gamma2linear(
 
 def linear2gamma(
     clip: vs.VideoNode, curve: Transfer, gcor: float = 1.0,
-    sigmoid: bool = False, thr: float = 0.5, cont: float = 6.5
+    sigmoid: bool = False, thr: float = 0.5, cont: float = 6.5,
+    epsilon: float = 1e-6
 ) -> vs.VideoNode:
     """Convert a video with linear space to gamma space."""
 
@@ -81,6 +82,6 @@ def linear2gamma(
         header = f'{header} {lin} LIN!'
         lin = 'LIN@'
 
-    expr = f'{lin} {c.k0} {c.phi} / <= {lin} {c.phi} * {lin} 1 {c.gamma} / pow {c.alpha} 1 + * {c.alpha} - ?'
+    expr = f'{lin} {c.k0} {c.phi} / <= {lin} {c.phi} * {lin} 1 {c.gamma} / pow {c.alpha} 1 + {epsilon} max * {c.alpha} - ?'
 
     return _clamp_converted(clip, header, expr, curve)
