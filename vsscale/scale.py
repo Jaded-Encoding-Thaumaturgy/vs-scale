@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import partial
 from math import ceil, floor, log2
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
 from vskernels import ScalerT, SetsuCubic, ZewiaCubic
@@ -220,8 +220,13 @@ class DLISR(GenericScaler):
         return self._finish_scale(output, clip, width, height, shift, matrix)
 
 
+class _BaseWaifu2x:
+    _model: ClassVar[int]
+    _needs_gray = False
+
+
 @dataclass
-class Waifu2x(GenericScaler):
+class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
     """Use Waifu2x neural network to scale clips."""
 
     cuda: bool | Literal['trt'] | None = None
@@ -281,13 +286,18 @@ class Waifu2x(GenericScaler):
 
                 cuda = 'trt'
 
-                bkwargs = KwargsT(
+                def_bkwargs = KwargsT(
                     workspace=memory / (1 << 22) if memory else None,
                     use_cuda_graph=True, use_cublas=True, use_cudnn=True,
                     use_edge_mask_convolutions=True, use_jit_convolutions=True,
                     static_shape=True, heuristic=True, output_format=int(self.fp16),
-                    tf32=not self.fp16, force_fp16=self.fp16, num_streams=def_num_streams
-                ) | bkwargs
+                    num_streams=def_num_streams
+                )
+
+                if self._model >= Waifu2x.SwinUnetArt._model:
+                    def_bkwargs |= KwargsT(tf32=not self.fp16, force_fp16=self.fp16)
+
+                bkwargs = def_bkwargs | bkwargs
 
                 streams_info = 'OK' if bkwargs['num_streams'] == def_num_streams else 'MISMATCH'
 
@@ -339,7 +349,9 @@ class Waifu2x(GenericScaler):
         kwargs.update(tiles=self.tiles, tilesize=self.tilesize, overlap=self.overlap)
 
         if (is_upscale := width > clip.width or height > clip.width):
-            from vsmlrt import Waifu2x, Waifu2xModel
+            from vsmlrt import Waifu2x as MlrtWaifu2x
+
+            model = self._model
 
             if clip.format.color_family is vs.YUV:
                 if not matrix:
@@ -348,8 +360,14 @@ class Waifu2x(GenericScaler):
             else:
                 wclip = depth(wclip, 16 if self.fp16 else 32, vs.FLOAT)
 
-                if is_gray:
+                if is_gray and model != 0:
                     wclip = wclip.std.ShufflePlanes(0, vs.RGB)
+
+            assert wclip.format
+
+            if wclip.format.color_family is vs.RGB:
+                if model == 0:
+                    model = 1
 
             try:
                 wclip = wclip.std.Limiter(planes=planes)
@@ -359,22 +377,58 @@ class Waifu2x(GenericScaler):
             mult = max(int(log2(ceil(size))) for size in (width / wclip.width, height / wclip.height))
 
             for _ in range(mult):
-                padding = self.mod_padding(wclip)
+                if self._model == Waifu2x.Cunet._model:
+                    padding = self.mod_padding(wclip)
 
-                padded = padder(wclip, *padding)
+                    wclip = padder(wclip, *padding)
 
-                upscaled = Waifu2x(
-                    padded, noise=-1, scale=2, model=Waifu2xModel.cunet, backend=self.backend, **kwargs
+                wclip = MlrtWaifu2x(
+                    wclip, noise=-1, scale=2, model=model, backend=self.backend, **kwargs
                 )
 
-                cropped = upscaled.std.Crop(*(p * 2 for p in padding))
+                if self._model == Waifu2x.Cunet._model:
+                    cropped = wclip.std.Crop(*(p * 2 for p in padding))
 
-                try:
-                    wclip = norm_expr(cropped, 'x 0.5 255 / + 0 1 clamp', planes=planes)
-                except RuntimeError:
-                    wclip = norm_expr(depth(cropped, 32), 'x 0.5 255 / + 0 max 1 min', planes=planes)
+                    try:
+                        wclip = norm_expr(cropped, 'x 0.5 255 / + 0 1 clamp', planes=planes)
+                    except RuntimeError:
+                        wclip = norm_expr(depth(cropped, 32), 'x 0.5 255 / + 0 max 1 min', planes=planes)
 
             if is_gray:
                 wclip = wclip.std.ShufflePlanes(0, vs.GRAY)
 
         return self._finish_scale(wclip, clip, width, height, shift, matrix, is_upscale)
+
+
+class Waifu2x(BaseWaifu2x):
+    _model = 6
+
+    class AnimeStyleArt(BaseWaifu2x):
+        _model = 0
+
+    class Photo(BaseWaifu2x):
+        _model = 2
+
+    class UpConv7AnimeStyleArt(BaseWaifu2x):
+        _model = 3
+
+    class UpConv7Photo(BaseWaifu2x):
+        _model = 4
+
+    class UpResNet10(BaseWaifu2x):
+        _model = 5
+
+    class Cunet(BaseWaifu2x):
+        _model = 6
+
+    class SwinUnetArt(BaseWaifu2x):
+        _model = 7
+
+    class SwinUnetPhoto(BaseWaifu2x):
+        _model = 8
+
+    class SwinUnetPhotoV2(BaseWaifu2x):
+        _model = 9
+
+    class SwinUnetArtScan(BaseWaifu2x):
+        _model = 10
