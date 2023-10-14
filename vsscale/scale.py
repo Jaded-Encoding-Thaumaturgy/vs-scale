@@ -6,14 +6,13 @@ from math import ceil, floor, log2
 from typing import Any, ClassVar, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
-from vskernels import ScalerT, SetsuCubic, ZewiaCubic
+from vskernels import Bicubic, Hermite, LinearScaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
-    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, Transfer, VSFunction, check_ref_clip, check_variable,
-    core, depth, fallback, get_depth, get_nvidia_version, inject_self, padder, vs
+    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, VSFunction, check_ref_clip, check_variable, core, depth,
+    fallback, get_nvidia_version, inject_self, padder, vs
 )
 
-from .gamma import gamma2linear, linear2gamma
 from .helpers import GenericScaler
 
 __all__ = [
@@ -65,8 +64,7 @@ class DPID(GenericScaler):
         return core.dpid.DpidRaw(clip, ref, **kwargs)  # type: ignore
 
 
-@dataclass
-class SSIM(GenericScaler):
+class SSIM(LinearScaler):
     """
     SSIM downsampler is an image downscaling technique that aims to optimize
     for the perceptual quality of the downscaled results.
@@ -80,7 +78,12 @@ class SSIM(GenericScaler):
     resulting in an accurate and spatio-temporally consistent representation of the high resolution input.
     """
 
-    smooth: int | float | VSFunction | None = None
+    scaler: ScalerT
+    """
+    Scaler to be used for downscaling.
+    """
+
+    smooth: int | float | VSFunction | None
     """
     Image smoothening method.
     If you pass an int, it specifies the "radius" of the internally-used boxfilter,
@@ -88,100 +91,58 @@ class SSIM(GenericScaler):
     If you pass a float, it specifies the "sigma" of gauss_blur,
     i.e. the standard deviation of gaussian blur.
     If you pass a function, it acts as a general smoother.
-    Default uses a gaussian blur.
+    Default uses a gaussian blur based on the scaler's kernel radius.
     """
 
-    curve: Transfer | bool | None = None
-    """
-    Perform a gamma conversion prior to scaling and after scaling. This must be set for `sigmoid` to function.
-    If True it will auto-determine the curve based on the input props or resolution.
-    Can be specified with for example `curve=TransferCurve.BT709`.
-    """
+    def __init__(
+        self, scaler: ScalerT = Hermite, smooth: int | float | VSFunction | None = None, **kwargs: Any
+    ) -> None:
+        super().__init__(**kwargs)
 
-    sigmoid: bool | float | tuple[float, float] | None = None
-    """When True, applies a sigmoidal curve after the power-like curve
-    (or before when converting from linear to gamma-corrected).
-    This helps reduce the dark halo artefacts found around sharp edges
-    caused by resizing in linear luminance.
-    It can be a float or a tuple of two float values.
-    When float or first value, it specifies the sigmoid slope. (cont)
-    The second value specifies the sigmoid center for the curve. (thr)
-    """
+        self.scaler = Hermite.from_param(scaler)
 
-    epsilon: float = 1e-6
-    """Variable used for math operations."""
+        if smooth is None:
 
-    @inject_self
-    def scale(  # type: ignore[override]
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
-        smooth: int | float | VSFunction = ((3 ** 2 - 1) / 12) ** 0.5,
-        curve: Transfer | bool = False, sigmoid: bool | float | tuple[float, float] = False, **kwargs: Any
+            kernel_radius = 1
+
+            if isinstance(self.scaler, Bicubic):
+                if not isinstance(self.scaler, Hermite):
+                    kernel_radius = 2
+            elif hasattr(self.scaler, 'taps'):
+                kernel_radius = int(self.scaler.taps)
+
+            smooth = (kernel_radius + 1.0) / 3
+
+        if callable(smooth):
+            self.filter_func = smooth
+        elif isinstance(smooth, int):
+            self.filter_func = partial(box_blur, radius=smooth)
+        elif isinstance(smooth, float):
+            self.filter_func = partial(gauss_blur, sigma=smooth)
+
+    def _linear_scale(
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
         assert check_variable(clip, self.scale)
 
-        smooth = fallback(self.smooth, smooth)  # type: ignore
-        curve = fallback(self.curve, curve)  # type: ignore
-        sigmoid = fallback(self.sigmoid, sigmoid)
-
-        if callable(smooth):
-            filter_func = smooth
-        elif isinstance(smooth, int):
-            filter_func = partial(box_blur, radius=smooth)
-        elif isinstance(smooth, float):
-            filter_func = partial(gauss_blur, sigma=smooth)
-
-        sigmoid_kwargs = KwargsT(epsilon=self.epsilon)
-
-        if isinstance(sigmoid, bool):
-            sigmoid_kwargs.update(sigmoid=bool(sigmoid))
-        else:
-            if isinstance(sigmoid, tuple):
-                sig_cont, sig_thr = sigmoid
-            else:
-                sig_cont, sig_thr = sigmoid, 0.5
-
-            sigmoid_kwargs.update(sigmoid=True, cont=sig_cont, thr=sig_thr)
-
-        if curve is True:
-            try:
-                curve = Transfer.from_video(clip, True)
-            except ValueError:
-                curve = Transfer.from_matrix(Matrix.from_video(clip))
-
-        bits, clip = get_depth(clip), depth(clip, 32)
-
-        convert_csp = None
-
-        if curve:
-            if clip.format and clip.format.color_family is not vs.RGB:
-                convert_csp = (Matrix.from_transfer(curve), clip.format)
-                clip = self._kernel.resample(clip, vs.RGBS, None, convert_csp[0])
-            clip = gamma2linear(clip, curve, **sigmoid_kwargs)
-
-        l1 = self._scaler.scale(clip, width, height, shift, **kwargs)
+        l1 = self.scaler.scale(clip, width, height, shift, **(kwargs | self.kwargs))
 
         l1_sq, c_sq = [expr_func(x, 'x dup *') for x in (l1, clip)]
 
-        l2 = self._scaler.scale(c_sq, width, height, shift, **kwargs)
+        l2 = self.scaler.scale(c_sq, width, height, shift, **(kwargs | self.kwargs))
 
-        m, sl_m_square, sh_m_square = [filter_func(x) for x in (l1, l1_sq, l2)]
+        m, sl_m_square, sh_m_square = [self.filter_func(x) for x in (l1, l1_sq, l2)]
 
         if complexpr_available:
-            merge_expr = f'z dup * SQ! x SQ@ - SQD! SQD@ {self.epsilon} < 0 y SQ@ - SQD@ / sqrt ?'
+            merge_expr = f'z dup * SQ! x SQ@ - SQD! SQD@ {1e-6} < 0 y SQ@ - SQD@ / sqrt ?'
         else:
-            merge_expr = f'x z dup * - {self.epsilon} < 0 y z dup * - x z dup * - / sqrt ?'
+            merge_expr = f'x z dup * - {1e-6} < 0 y z dup * - x z dup * - / sqrt ?'
 
         r = expr_func([sl_m_square, sh_m_square, m], merge_expr)
+
         t = expr_func([r, m], 'x y *')
-        d = expr_func([filter_func(m), filter_func(r), l1, filter_func(t)], 'x y z * + a -')
 
-        if curve:
-            d = linear2gamma(d, curve, **sigmoid_kwargs)
-
-        if convert_csp is not None:
-            d = self._kernel.resample(d, convert_csp[1], convert_csp[0])
-
-        return depth(d, bits)
+        return expr_func([self.filter_func(m), self.filter_func(r), l1, self.filter_func(t)], 'x y z * + a -')
 
 
 @dataclass
