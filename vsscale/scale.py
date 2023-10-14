@@ -383,7 +383,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                     wclip = padder(wclip, *padding)
 
                 wclip = MlrtWaifu2x(
-                    wclip, noise=-1, scale=2, model=model, backend=self.backend, **kwargs
+                    wclip, noise=-1, scale=2, model=model, backend=self.backend, preprocess=False, **kwargs
                 )
 
                 if self._model == Waifu2x.Cunet._model:
