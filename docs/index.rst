@@ -56,7 +56,6 @@ Check out the `how to contribute <contribute>` section!
     submodules/descale
     submodules/exceptions
     submodules/funcs
-    submodules/gamma
     submodules/helpers
     submodules/mask
     submodules/scale
