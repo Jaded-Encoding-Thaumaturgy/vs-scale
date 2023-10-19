@@ -9,7 +9,7 @@ from vsexprtools import complexpr_available, expr_func, norm_expr
 from vskernels import Bicubic, Hermite, LinearScaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
-    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, VSFunction, check_ref_clip, check_variable, core, depth,
+    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, VSFunction, check_ref_clip, check_variable, core, depth, expect_bits,
     fallback, get_nvidia_version, inject_self, padder, vs
 )
 
@@ -102,7 +102,6 @@ class SSIM(LinearScaler):
         self.scaler = Hermite.from_param(scaler)
 
         if smooth is None:
-
             kernel_radius = 1
 
             if isinstance(self.scaler, Bicubic):
@@ -125,6 +124,8 @@ class SSIM(LinearScaler):
     ) -> vs.VideoNode:
         assert check_variable(clip, self.scale)
 
+        clip, bits = expect_bits(clip, 32)
+
         l1 = self.scaler.scale(clip, width, height, shift, **(kwargs | self.kwargs))
 
         l1_sq, c_sq = [expr_func(x, 'x dup *') for x in (l1, clip)]
@@ -142,7 +143,9 @@ class SSIM(LinearScaler):
 
         t = expr_func([r, m], 'x y *')
 
-        return expr_func([self.filter_func(m), self.filter_func(r), l1, self.filter_func(t)], 'x y z * + a -')
+        merge = expr_func([self.filter_func(m), self.filter_func(r), l1, self.filter_func(t)], 'x y z * + a -')
+
+        return depth(merge, bits)
 
 
 @dataclass
