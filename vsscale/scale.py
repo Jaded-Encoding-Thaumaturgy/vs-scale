@@ -314,6 +314,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
 
         _static_args = kwargs.pop('_static_args', self._static_args)
         force = _static_args.pop('force', False)
+        do_scale = _static_args.get('scale') > 1
 
         kwargs.update(tiles=self.tiles, tilesize=self.tilesize, overlap=self.overlap)
 
@@ -346,7 +347,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
             mult = 1 if force else max(int(log2(ceil(size))) for size in (width / wclip.width, height / wclip.height))
 
             for _ in range(mult):
-                if self._model == Waifu2x.Cunet._model:
+                if do_scale and self._model == Waifu2x.Cunet._model:
                     padding = self.mod_padding(wclip)
 
                     wclip = padder(wclip, *padding)
@@ -355,7 +356,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                     wclip, **_static_args, model=model, backend=self.backend, preprocess=False, **kwargs
                 )
 
-                if self._model == Waifu2x.Cunet._model:
+                if do_scale and self._model == Waifu2x.Cunet._model:
                     cropped = wclip.std.Crop(*(p * 2 for p in padding))
 
                     try:
