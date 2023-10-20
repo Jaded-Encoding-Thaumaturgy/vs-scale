@@ -187,6 +187,7 @@ class DLISR(GenericScaler):
 class _BaseWaifu2x:
     _model: ClassVar[int]
     _needs_gray = False
+    _static_args = dict(noise=-1, scale=2)
 
 
 @dataclass
@@ -310,9 +311,13 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
         matrix = self.matrix
         is_gray = clip.format.color_family is vs.GRAY
         planes = 0 if is_gray else None
+
+        _static_args = kwargs.pop('_static_args', self._static_args)
+        force = _static_args.pop('force', False)
+
         kwargs.update(tiles=self.tiles, tilesize=self.tilesize, overlap=self.overlap)
 
-        if (is_upscale := width > clip.width or height > clip.width):
+        if (is_upscale := width > clip.width or height > clip.width or force):
             from vsmlrt import Waifu2x as MlrtWaifu2x
 
             model = self._model
@@ -338,7 +343,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
             except vs.Error:
                 wclip = norm_expr(wclip, 'x 0 1 clamp', planes=planes)
 
-            mult = max(int(log2(ceil(size))) for size in (width / wclip.width, height / wclip.height))
+            mult = 1 if force else max(int(log2(ceil(size))) for size in (width / wclip.width, height / wclip.height))
 
             for _ in range(mult):
                 if self._model == Waifu2x.Cunet._model:
@@ -347,7 +352,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                     wclip = padder(wclip, *padding)
 
                 wclip = MlrtWaifu2x(
-                    wclip, noise=-1, scale=2, model=model, backend=self.backend, preprocess=False, **kwargs
+                    wclip, **_static_args, model=model, backend=self.backend, preprocess=False, **kwargs
                 )
 
                 if self._model == Waifu2x.Cunet._model:
