@@ -9,8 +9,8 @@ from vsexprtools import complexpr_available, expr_func, norm_expr
 from vskernels import Bicubic, Hermite, LinearScaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
-    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, VSFunction, check_ref_clip, check_variable, core, depth, expect_bits,
-    fallback, get_nvidia_version, inject_self, padder, vs
+    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, VSFunction, check_ref_clip, check_variable, core, depth,
+    expect_bits, fallback, get_nvidia_version, inject_self, padder, vs
 )
 
 from .helpers import GenericScaler
