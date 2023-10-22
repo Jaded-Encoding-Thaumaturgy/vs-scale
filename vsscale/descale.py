@@ -6,7 +6,7 @@ from math import log2
 from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Nnedi3
-from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Spline144
+from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Bilinear
 from vsmasktools import GenericMaskT, normalize_mask
 from vstools import (
     CustomValueError, FieldBased, FieldBasedT, FuncExceptT, core, depth, expect_bits, get_h, get_prop, get_w, get_y,
@@ -141,7 +141,7 @@ def descale(  # type: ignore
     ] = descale_detail_mask,
     mode: DescaleMode | DescaleModeWithInfo = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Bilinear,
     result: Literal[False] = False
 ) -> vs.VideoNode:
     ...
@@ -157,7 +157,7 @@ def descale(
     ] = descale_detail_mask,
     mode: DescaleMode | DescaleModeWithInfo = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Bilinear,
     result: Literal[True] = True
 ) -> DescaleResult:
     ...
@@ -172,7 +172,7 @@ def descale(
     ] = descale_detail_mask,
     mode: DescaleMode | DescaleModeWithInfo = DescaleMode.PlaneDiff(0.0),
     dst_width: int | None = None, dst_height: int | None = None,
-    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Spline144,
+    shift: tuple[float, float] = (0, 0), scaler: ScalerT = Bilinear,
     result: bool = False
 ) -> vs.VideoNode | DescaleResult:
     """
@@ -256,7 +256,7 @@ def descale(
                             Default: (0, 0), no shifting.
     :param scaler:          Scaler used for operations where regular scaling is required (for example,
                             ``upscaler=None``, for scaling chroma and descale detail mask).
-                            Default: :py:class:`vskernels.Spline144`
+                            Default: :py:class:`vskernels.Bilinear`
     :param result:          Return the :py:class:`DescaleResult` object.
                             If False, return the regularly rescaled output.
                             Default: False.
