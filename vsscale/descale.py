@@ -437,7 +437,7 @@ def descale_fields(
         print(DeprecationWarning('descale_fields: Passing a tuple for src_top/left was a bad workaround!'))
         src_left, src_top = src_left[0] if slt else src_left, src_top[0] if stt else src_top
 
-    clip = kernel.descale(clip, width, height, (src_top, src_left))
+    clip = kernel.descale(get_y(clip), width, height, (src_top, src_left))
 
     if debug:
         return clip.std.SetFrameProp('scaler', data=f'{kernel.__class__.__name__} (Fields)')
