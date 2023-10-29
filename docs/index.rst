@@ -10,14 +10,14 @@ vsscale Documentation
 .. image:: https://img.shields.io/pypi/v/vsscale
     :target: https://pypi.org/project/vsscale/
 
-.. image:: https://img.shields.io/github/commits-since/Irrational-Encoding-Wizardry/vs-scale/latest
-    :target: https://github.com/Irrational-Encoding-Wizardry/vs-scale/commits/master
+.. image:: https://img.shields.io/github/commits-since/Setsugennoao/vs-scale/latest
+    :target: https://github.com/Setsugennoao/vs-scale/commits/master
 
 .. image:: https://img.shields.io/pypi/l/vsscale
-    :target: https://github.com/Irrational-Encoding-Wizardry/vs-scale/blob/master/LICENSE
+    :target: https://github.com/Setsugennoao/vs-scale/blob/master/LICENSE
 
 .. image:: https://img.shields.io/discord/856381934052704266?label=discord
-    :target: https://discord.gg/qxTxVJGtst
+    :target: https://discord.gg/setsugen
 
 .. image:: https://static.pepy.tech/personalized-badge/vsscale?period=total&units=international_system&left_color=grey&right_color=blue&left_text=downloads
     :target: https://pepy.tech/project/vsscale
@@ -66,6 +66,6 @@ Check out the `how to contribute <contribute>` section!
 Special Credits
 ---------------
 | A special thanks to every contributor who has contributed to vsscale.
-| `A comprehensive list of contributors can be found here. <https://github.com/Irrational-Encoding-Wizardry/vs-scale/graphs/contributors>`_
+| `A comprehensive list of contributors can be found here. <https://github.com/Setsugennoao/vs-scale/graphs/contributors>`_
 
 
