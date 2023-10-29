@@ -425,39 +425,24 @@ def descale_fields(
 
     func = func or descale_fields
 
-    height_field = int(height / 2)
+    print(DeprecationWarning('descale_fields: This old wrapper is deprecated in favor of Kernel.descale!'))
+
     width = width or get_w(height, clip)
 
     kernel = Kernel.ensure_obj(kernel, func)
 
     clip = FieldBased.ensure_presence(clip, tff, func)
 
-    y = get_y(clip).std.SeparateFields()
+    if (slt := isinstance(src_left, tuple)) or (stt := isinstance(src_top, tuple)):
+        print(DeprecationWarning('descale_fields: Passing a tuple for src_top/left was a bad workaround!'))
+        src_left, src_top = src_left[0] if slt else src_left, src_top[0] if stt else src_top
 
-    if isinstance(src_top, tuple):
-        ff_top, sf_top = src_top
-    else:
-        ff_top = sf_top = src_top
-
-    if isinstance(src_left, tuple):
-        ff_left, sf_left = src_left
-    else:
-        ff_left = sf_left = src_left
-
-    if (ff_top, ff_left) == (sf_top, sf_left):
-        descaled = kernel.descale(y, width, height_field, (ff_top, ff_left))
-    else:
-        descaled = core.std.Interleave([
-            kernel.descale(y[::2], width, height_field, (ff_top, ff_left)),
-            kernel.descale(y[1::2], width, height_field, (sf_top, sf_left))
-        ])
-
-    weave_y = descaled.std.DoubleWeave()
+    clip = kernel.descale(clip, width, height, (src_top, src_left))
 
     if debug:
-        weave_y = weave_y.std.SetFrameProp('scaler', data=f'{kernel.__class__.__name__} (Fields)')
+        return clip.std.SetFrameProp('scaler', data=f'{kernel.__class__.__name__} (Fields)')
 
-    return weave_y.std.SetFieldBased(0)[::2]
+    return clip
 
 
 # TODO: Write a function that checks every possible combination of B and C in bicubic
