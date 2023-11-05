@@ -10,7 +10,7 @@ from vskernels import Bicubic, Hermite, LinearScaler, ScalerT, SetsuCubic, Zewia
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, VSFunction, check_ref_clip, check_variable, core, depth,
-    expect_bits, fallback, get_nvidia_version, inject_self, padder, vs
+    fallback, get_nvidia_version, inject_self, padder, vs
 )
 
 from .helpers import GenericScaler
@@ -124,8 +124,6 @@ class SSIM(LinearScaler):
     ) -> vs.VideoNode:
         assert check_variable(clip, self.scale)
 
-        clip, bits = expect_bits(clip, 32)
-
         l1 = self.scaler.scale(clip, width, height, shift, **(kwargs | self.kwargs))
 
         l1_sq, c_sq = [expr_func(x, 'x dup *') for x in (l1, clip)]
@@ -143,9 +141,7 @@ class SSIM(LinearScaler):
 
         t = expr_func([r, m], 'x y *')
 
-        merge = expr_func([self.filter_func(m), self.filter_func(r), l1, self.filter_func(t)], 'x y z * + a -')
-
-        return depth(merge, bits)
+        return expr_func([self.filter_func(m), self.filter_func(r), l1, self.filter_func(t)], 'x y z * + a -')
 
 
 @dataclass
