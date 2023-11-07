@@ -168,7 +168,7 @@ class DLISR(GenericScaler):
 
         if width > clip.width or height > clip.width:
             if not matrix:
-                matrix = Matrix.from_param(matrix or self.matrix, self.__class__) or Matrix.from_video(clip, False)
+                matrix = Matrix.from_param_or_video(matrix or self.matrix, clip, False, self.__class__)
 
             output = self._kernel.resample(output, vs.RGBS, Matrix.RGB, matrix)
             output = output.std.Limiter()
@@ -321,7 +321,8 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
 
             if clip.format.color_family is vs.YUV:
                 if not matrix:
-                    matrix = Matrix.from_param(matrix or self.matrix, self.__class__) or Matrix.from_video(clip, False)
+                    matrix = Matrix.from_param_or_video(matrix or self.matrix, clip, False, self.__class__)
+
                 wclip = self._kernel.resample(wclip, vs.RGBH if self.fp16 else vs.RGBS, Matrix.RGB, matrix)
             else:
                 wclip = depth(wclip, 16 if self.fp16 else 32, vs.FLOAT)
