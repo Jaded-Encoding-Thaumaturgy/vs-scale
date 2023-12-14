@@ -20,6 +20,10 @@ __all__ = [
     'ScalingArgs'
 ]
 
+__abstract__ = [
+    'GenericScaler'
+]
+
 
 class _GeneriScaleNoShift(Protocol):
     def __call__(self, clip: vs.VideoNode, width: int, height: int, *args: Any, **kwds: Any) -> vs.VideoNode:

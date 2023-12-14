@@ -82,6 +82,10 @@ class MergeScalers(GenericScaler):
             ExprOp.ADD, zip(weights, ExprOp.MUL), expr_suffix=[sum(weights), ExprOp.DIV]
         )
 
+    @property
+    def kernel_radius(self) -> int:
+        return max(scaler.kernel_radius for scaler, _ in self.scalers)
+
 
 @dataclass
 class ClampScaler(GenericScaler):
@@ -127,6 +131,9 @@ class ClampScaler(GenericScaler):
         if self.undershoot is None:
             self.undershoot = self.overshoot
 
+        self._reference = None if isinstance(self.reference, vs.VideoNode) else self.ensure_scaler(self.reference)
+        self._ref_scaler = self.ensure_scaler(self.ref_scaler)
+
     @inject_self
     def scale(  # type: ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
@@ -134,7 +141,7 @@ class ClampScaler(GenericScaler):
     ) -> vs.VideoNode:
         assert (self.undershoot or self.undershoot == 0) and (self.overshoot or self.overshoot == 0)
 
-        ref = self.ensure_scaler(self.ref_scaler).scale(clip, width, height, shift, **kwargs)
+        ref = self._ref_scaler.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
             smooth = self.reference  # type: ignore
@@ -142,7 +149,8 @@ class ClampScaler(GenericScaler):
             if shift != (0, 0):
                 smooth = self._kernel.shift(smooth, shift)  # type: ignore
         else:
-            smooth = self.ensure_scaler(self.reference).scale(clip, width, height, shift)  # type: ignore
+            assert self._reference
+            smooth = self._reference.scale(clip, width, height, shift)  # type: ignore
 
         assert smooth
 
@@ -187,6 +195,12 @@ class ClampScaler(GenericScaler):
 
         return merged
 
+    @property
+    def kernel_radius(self) -> int:
+        if self._reference:
+            return max(self._reference.kernel_radius, self._ref_scaler.kernel_radius)
+        return self._ref_scaler.kernel_radius
+
 
 class UnsharpLimitScaler(GenericScaler):
     """Limit a scaler with a masked unsharping."""
@@ -213,6 +227,7 @@ class UnsharpLimitScaler(GenericScaler):
         self.merge_mode = merge_mode
 
         self.reference = reference
+        self._reference = None if isinstance(self.reference, vs.VideoNode) else self.ensure_scaler(self.reference)
         self.ref_scaler = self.ensure_scaler(ref_scaler)
 
         self.args = args
@@ -231,7 +246,7 @@ class UnsharpLimitScaler(GenericScaler):
             if shift != (0, 0):
                 smooth = self._kernel.shift(smooth, shift)  # type: ignore
         else:
-            smooth = self.ensure_scaler(self.reference).scale(clip, width, height, shift)  # type: ignore
+            smooth = self._reference.scale(clip, width, height, shift)  # type: ignore
 
         assert smooth
 
@@ -246,6 +261,12 @@ class UnsharpLimitScaler(GenericScaler):
             return median_clips(smooth, fsrcnnx, smooth_sharp)
 
         return combine([smooth, fsrcnnx, smooth_sharp], ExprOp.MIN)
+
+    @property
+    def kernel_radius(self) -> int:
+        if self._reference:
+            return max(self._reference.kernel_radius, self.ref_scaler.kernel_radius)
+        return self.ref_scaler.kernel_radius
 
 
 @dataclass

@@ -6,7 +6,7 @@ from math import ceil, floor, log2
 from typing import Any, ClassVar, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
-from vskernels import Bicubic, Hermite, LinearScaler, ScalerT, SetsuCubic, ZewiaCubic
+from vskernels import Hermite, LinearScaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, VSFunction, check_ref_clip, check_variable, core, depth,
@@ -62,6 +62,10 @@ class DPID(GenericScaler):
         } | kwargs | {'read_chromaloc': True}
 
         return core.dpid.DpidRaw(clip, ref, **kwargs)  # type: ignore
+
+    @inject_self.property
+    def kernel_radius(self) -> int:
+        return self.ref.kernel_radius
 
 
 class SSIM(LinearScaler):
@@ -135,6 +139,10 @@ class SSIM(LinearScaler):
 
         return expr_func([self.filter_func(m), self.filter_func(r), l1, self.filter_func(t)], 'x y z * + a -')
 
+    @inject_self.property
+    def kernel_radius(self) -> int:
+        return self.ref.kernel_radius
+
 
 @dataclass
 class DLISR(GenericScaler):
@@ -170,6 +178,8 @@ class DLISR(GenericScaler):
             output = output.akarin.DLISR(max_scale, self.device_id)
 
         return self._finish_scale(output, clip, width, height, shift, matrix)
+
+    _static_kernel_radius = 2
 
 
 class _BaseWaifu2x:
@@ -357,6 +367,8 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                 wclip = wclip.std.ShufflePlanes(0, vs.GRAY)
 
         return self._finish_scale(wclip, clip, width, height, shift, matrix, is_upscale)
+
+    _static_kernel_radius = 2
 
 
 class Waifu2x(BaseWaifu2x):

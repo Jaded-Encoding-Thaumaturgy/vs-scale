@@ -25,6 +25,8 @@ __all__ = [
 class PlaceboShaderMeta(GenericScaler):
     shader_file: str | Path | ShaderFile
 
+    _static_kernel_radius = 2
+
 
 @dataclass
 class PlaceboShaderBase(PlaceboShaderMeta):
