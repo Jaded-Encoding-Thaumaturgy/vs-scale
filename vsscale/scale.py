@@ -102,15 +102,7 @@ class SSIM(LinearScaler):
         self.scaler = Hermite.from_param(scaler)
 
         if smooth is None:
-            kernel_radius = 1
-
-            if isinstance(self.scaler, Bicubic):
-                if not isinstance(self.scaler, Hermite):
-                    kernel_radius = 2
-            elif hasattr(self.scaler, 'taps'):
-                kernel_radius = int(self.scaler.taps)
-
-            smooth = (kernel_radius + 1.0) / 3
+            smooth = (self.scaler.kernel_radius + 1.0) / 3
 
         if callable(smooth):
             self.filter_func = smooth
