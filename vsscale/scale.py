@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import partial
+from functools import lru_cache, partial
 from math import ceil, floor, log2
 from typing import Any, ClassVar, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
-from vskernels import Hermite, LinearScaler, ScalerT, SetsuCubic, ZewiaCubic
+from vskernels import Hermite, LinearScaler, Scaler, ScalerT, SetsuCubic, ZewiaCubic
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
-    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, VSFunction, check_ref_clip, check_variable, core, depth,
-    fallback, get_nvidia_version, inject_self, padder, vs
+    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, VSFunction, check_ref_clip,
+    check_variable, check_variable_format, core, depth, fallback, get_nvidia_version, inject_self, padder, vs
 )
 
 from .helpers import GenericScaler
@@ -182,6 +182,107 @@ class DLISR(GenericScaler):
     _static_kernel_radius = 2
 
 
+@lru_cache
+def mod_padding(sizes: tuple[int, int], mod: int = 16, min: int = 4) -> tuple[int, int, int, int]:
+    ph, pv = (mod - (((x + min * 2) - 1) % mod + 1) for x in sizes)
+    left, top = floor(ph / 2), floor(pv / 2)
+    return tuple(x + min for x in (left, ph - left, top, pv - top))  # type: ignore
+
+
+class Waifu2xPadHelper(ProcessVariableResClip):
+    def normalize(self, clip: vs.VideoNode, cast_to: tuple[int, int]) -> vs.VideoNode:
+        padding = mod_padding(cast_to)
+
+        return padder.MIRROR(super().normalize(clip, cast_to), *padding).std.SetFrameProp('_PadValues', padding)
+
+
+class Waifu2xCropHelper(ProcessVariableResClip[tuple[int, int, int, int, int, int]]):
+    def get_key(self, frame: vs.VideoFrame) -> tuple[int, int, int, int, int, int]:
+        if isinstance(frame, vs.VideoNode):
+            padding = mod_padding((frame.width, frame.height))
+        else:
+            padding = frame.props._PadValues
+
+        return (frame.width, frame.height, *padding)
+
+    def normalize(self, clip: vs.VideoNode, cast_to: tuple[int, int, int, int, int, int]) -> vs.VideoNode:
+        width, height, *padding = cast_to
+
+        return super().normalize(clip, (width, height)).std.Crop(*(p * 2 for p in padding))
+
+
+class Waifu2xScaleHelper(ProcessVariableResClip):
+    def __init__(self, clip: vs.VideoNode, backend: object, backend_kwargs: KwargsT, kwargs: KwargsT, cache_size: int) -> None:
+        super().__init__(clip, cache_size=cache_size)
+
+        self.kwargs = kwargs
+        self.backend = backend
+        self.backend_kwargs = backend_kwargs
+
+    def normalize(self, clip: vs.VideoNode, cast_to: tuple[int, int]) -> vs.VideoNode:
+        from vsmlrt import Waifu2x as MlrtWaifu2x  # type: ignore
+
+        if (max_shape := self.backend_kwargs.get('max_shape', None)):
+            if cast_to[0] > max_shape[0] or cast_to[1] > max_shape[1]:
+                self.backend_kwargs.update(max_shape=cast_to)
+
+        return MlrtWaifu2x(
+            super().normalize(clip, cast_to), backend=self.backend(**self.backend_kwargs), **self.kwargs
+        )
+
+
+class Waifu2xResizeHelper(ProcessVariableResClip[tuple[int, int]]):
+    def __init__(
+        self, clip: vs.VideoNode, width: int, height: int, planes: PlanesT, is_gray: bool,
+        scaler: Scaler, do_padding: bool, w2x_kwargs: KwargsT, w2x_cache_size: int,
+        backend: object, backend_kwargs: KwargsT
+    ) -> None:
+        super().__init__(clip, (width, height))
+
+        self.width = width
+        self.height = height
+        self.planes = planes
+        self.is_gray = is_gray
+        self.scaler = scaler
+        self.do_padding = do_padding
+        self.w2x_kwargs = w2x_kwargs
+        self.w2x_cache_size = w2x_cache_size
+        self.backend = backend
+        self.backend_kwargs = backend_kwargs.copy()
+
+    def normalize(self, wclip: vs.VideoNode, cast_to: tuple[int, int]) -> vs.VideoNode:
+        mult = max(int(log2(ceil(size))) for size in (self.width / cast_to[0], self.height / cast_to[1]))
+
+        for _ in range(mult):
+            if self.do_padding:
+                wclip = Waifu2xPadHelper.from_clip(wclip)
+
+            wclip = Waifu2xScaleHelper(
+                wclip, self.backend, self.backend_kwargs, self.w2x_kwargs, self.w2x_cache_size
+            ).eval_clip()
+
+            if self.do_padding:
+                cropped = Waifu2xCropHelper.from_clip(wclip)
+
+                try:
+                    wclip = norm_expr(cropped, 'x 0.5 255 / + 0 1 clamp', planes=self.planes)
+                except RuntimeError:
+                    wclip = norm_expr(depth(cropped, 32), 'x 0.5 255 / + 0 max 1 min', planes=self.planes)
+
+        return wclip
+
+    def process(self, clip: vs.VideoNode) -> vs.VideoNode:
+        try:
+            wclip = clip.std.Limiter(planes=self.planes)
+        except vs.Error:
+            wclip = norm_expr(clip, 'x 0 1 clamp', planes=self.planes)
+
+        if self.is_gray:
+            wclip = wclip.std.ShufflePlanes(0, vs.GRAY)
+
+        return self.scaler.scale(wclip, self.width, self.height)
+
+
 class _BaseWaifu2x:
     _model: ClassVar[int]
     _needs_gray = False
@@ -219,19 +320,31 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
     backend_kwargs: KwargsT | None = None
     """Kwargs passed to create the backend instance."""
 
-    @classmethod
-    def mod_padding(cls, clip: vs.VideoNode, mod: int = 4, min: int = 4) -> tuple[int, int, int, int]:
-        ph, pv = (mod - (((x + min * 2) - 1) % mod + 1) for x in (clip.width, clip.height))
-        left, top = floor(ph / 2), floor(pv / 2)
-        return tuple(x + min for x in (left, ph - left, top, pv - top))  # type: ignore
+    dynamic_shape: bool | None = None
+    """
+    Use a single model for 0-max_shapes resolutions.
+    None to automatically detect it. Will be True when previewing and TRT is available.
+    """
+
+    max_shapes: tuple[int, int] | None = (1920, 1080)
+    """
+    Max shape for a dynamic model when using TRT and variable resolution clip.
+    This can be overridden if the frame size is bigger.
+    """
+
+    max_instances: int = 2
+    """Maximum instances to spawn when scaling a variable resolution clip."""
 
     def __post_init__(self) -> None:
-        try:
-            from vsmlrt import Backend  # type: ignore
-        except ModuleNotFoundError as e:
-            raise DependencyNotFoundError(self.__class__, e)
-
         cuda = self.cuda
+
+        if self.dynamic_shape is None:
+            try:
+                from vspreview import is_preview
+
+                self.dynamic_shape = is_preview()
+            except Exception:
+                self.dynamic_shape = False
 
         if cuda is True:
             self.fp16 = False
@@ -278,33 +391,46 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
         if bkwargs.get('num_streams', None) is None:
             bkwargs.update(num_streams=fallback(self.num_streams, 1))
 
-        if cuda is True:
-            if hasattr(core, 'ort'):
-                self.backend = Backend.ORT_CUDA(**bkwargs)
-            else:
-                self.backend = Backend.OV_GPU(**bkwargs)
-        elif cuda is False:
-            if hasattr(core, 'ncnn'):
-                self.backend = Backend.NCNN_VK(**bkwargs)
-            else:
-                bkwargs.pop('device_id')
-
-                if hasattr(core, 'ort'):
-                    self.backend = Backend.ORT_CPU(**bkwargs)
-                else:
-                    self.backend = Backend.OV_CPU(**bkwargs)
-        else:
-            self.backend = Backend.TRT(**bkwargs)
+        self._cuda = cuda
+        self._bkwargs = bkwargs
 
         super().__post_init__()
+
+    @property
+    def _backend(self) -> object:
+        try:
+            from vsmlrt import Backend  # type: ignore
+        except ModuleNotFoundError as e:
+            raise DependencyNotFoundError(self.__class__, e)
+
+        if self._cuda is True:
+            if hasattr(core, 'ort'):
+                return Backend.ORT_CUDA
+
+            return Backend.OV_GPU
+        elif self._cuda is False:
+            if hasattr(core, 'ncnn'):
+                return Backend.NCNN_VK
+
+            if hasattr(core, 'ort'):
+                return Backend.ORT_CPU
+
+            return Backend.OV_CPU
+
+        return Backend.TRT
 
     @inject_self.init_kwargs.clean
     def scale(  # type:ignore
         self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
+        try:
+            from vsmlrt import Backend  # type: ignore
+        except ModuleNotFoundError as e:
+            raise DependencyNotFoundError(self.__class__, e)
+
         wclip = clip
 
-        assert check_variable(clip, self.scale)
+        check_variable_format(clip, self.scale)
 
         matrix = self.matrix
         is_gray = clip.format.color_family is vs.GRAY
@@ -314,11 +440,16 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
         force = _static_args.pop('force', False)
         do_scale = _static_args.get('scale') > 1
 
+        bkwargs = self._bkwargs.copy()
+
+        dynamic_shapes = self.dynamic_shape or (0 in (clip.width, clip.height)) or not bkwargs.get('static_shape', True)
+
         kwargs.update(tiles=self.tiles, tilesize=self.tilesize, overlap=self.overlap)
 
-        if (is_upscale := width > clip.width or height > clip.width or force):
-            from vsmlrt import Waifu2x as MlrtWaifu2x
+        if dynamic_shapes and self._backend is Backend.TRT:
+            bkwargs.update(static_shape=False, opt_shapes=(64, 64), max_shapes=self.max_shapes)
 
+        if (is_upscale := width > clip.width or height > clip.width or force):
             model = self._model
 
             if clip.format.color_family is vs.YUV:
@@ -338,33 +469,14 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                 if model == 0:
                     model = 1
 
-            try:
-                wclip = wclip.std.Limiter(planes=planes)
-            except vs.Error:
-                wclip = norm_expr(wclip, 'x 0 1 clamp', planes=planes)
-
-            mult = 1 if force else max(int(log2(ceil(size))) for size in (width / wclip.width, height / wclip.height))
-
-            for _ in range(mult):
-                if do_scale and self._model == Waifu2x.Cunet._model:
-                    padding = self.mod_padding(wclip)
-
-                    wclip = padder(wclip, *padding)
-
-                wclip = MlrtWaifu2x(
-                    wclip, **_static_args, model=model, backend=self.backend, preprocess=False, **kwargs
-                )
-
-                if do_scale and self._model == Waifu2x.Cunet._model:
-                    cropped = wclip.std.Crop(*(p * 2 for p in padding))
-
-                    try:
-                        wclip = norm_expr(cropped, 'x 0.5 255 / + 0 1 clamp', planes=planes)
-                    except RuntimeError:
-                        wclip = norm_expr(depth(cropped, 32), 'x 0.5 255 / + 0 max 1 min', planes=planes)
-
-            if is_gray:
-                wclip = wclip.std.ShufflePlanes(0, vs.GRAY)
+            wclip = Waifu2xResizeHelper(
+                wclip, width, height, planes, is_gray, self._scaler,
+                do_scale and self._model == Waifu2x.Cunet._model,
+                KwargsT(
+                    **_static_args, model=model,
+                    preprocess=False, **kwargs
+                ), self.max_instances, self._backend, bkwargs
+            ).eval_clip()
 
         return self._finish_scale(wclip, clip, width, height, shift, matrix, is_upscale)
 
