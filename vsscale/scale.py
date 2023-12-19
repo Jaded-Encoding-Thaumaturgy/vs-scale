@@ -222,9 +222,9 @@ class Waifu2xScaleHelper(ProcessVariableResClip):
     def normalize(self, clip: vs.VideoNode, cast_to: tuple[int, int]) -> vs.VideoNode:
         from vsmlrt import Waifu2x as MlrtWaifu2x  # type: ignore
 
-        if (max_shape := self.backend_kwargs.get('max_shape', None)):
-            if cast_to[0] > max_shape[0] or cast_to[1] > max_shape[1]:
-                self.backend_kwargs.update(max_shape=cast_to)
+        if (max_shapes := self.backend_kwargs.get('max_shapes', None)):
+            if cast_to[0] > max_shapes[0] or cast_to[1] > max_shapes[1]:
+                self.backend_kwargs.update(max_shapes=cast_to)
 
         return MlrtWaifu2x(
             super().normalize(clip, cast_to), backend=self.backend(**self.backend_kwargs), **self.kwargs
@@ -326,7 +326,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
     None to automatically detect it. Will be True when previewing and TRT is available.
     """
 
-    max_shapes: tuple[int, int] | None = (1920, 1080)
+    max_shapes: tuple[int, int] | None = (1936, 1088)
     """
     Max shape for a dynamic model when using TRT and variable resolution clip.
     This can be overridden if the frame size is bigger.
