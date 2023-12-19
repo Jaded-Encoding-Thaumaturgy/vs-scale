@@ -10,7 +10,7 @@ from vskernels import Hermite, LinearScaler, Scaler, ScalerT, SetsuCubic, ZewiaC
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, VSFunction, check_ref_clip,
-    check_variable, check_variable_format, core, depth, fallback, get_nvidia_version, inject_self, padder, vs
+    check_variable, check_variable_format, clamp, core, depth, fallback, get_nvidia_version, inject_self, padder, vs
 )
 
 from .helpers import GenericScaler
@@ -358,7 +358,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
             try:
                 data: KwargsT = core.trt.DeviceProperties(self.device_id)  # type: ignore
                 memory = data.get('total_global_memory', 0)
-                def_num_streams = data.get('async_engine_count', 1)
+                def_num_streams = clamp(data.get('async_engine_count', 1), 1, 2)
 
                 cuda = 'trt'
 
@@ -388,7 +388,9 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                 bkwargs['fp16'] = False
                 cuda = get_nvidia_version() is not None
 
-        if bkwargs.get('num_streams', None) is None:
+        if self.num_streams is not None:
+            bkwargs.update(num_streams=self.num_streams)
+        elif bkwargs.get('num_streams', None) is None:
             bkwargs.update(num_streams=fallback(self.num_streams, 1))
 
         self._cuda = cuda
