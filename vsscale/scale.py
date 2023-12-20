@@ -10,7 +10,8 @@ from vskernels import Hermite, LinearScaler, Scaler, ScalerT, SetsuCubic, ZewiaC
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, VSFunction, check_ref_clip,
-    check_variable, check_variable_format, clamp, core, depth, fallback, get_nvidia_version, inject_self, padder, vs
+    check_variable, check_variable_format, clamp, core, depth, fallback, get_nvidia_version, get_prop, inject_self,
+    padder, vs
 )
 
 from .helpers import GenericScaler
@@ -198,12 +199,7 @@ class Waifu2xPadHelper(ProcessVariableResClip):
 
 class Waifu2xCropHelper(ProcessVariableResClip[tuple[int, int, int, int, int, int]]):
     def get_key(self, frame: vs.VideoFrame) -> tuple[int, int, int, int, int, int]:
-        if isinstance(frame, vs.VideoNode):
-            padding = mod_padding((frame.width, frame.height))
-        else:
-            padding = frame.props._PadValues
-
-        return (frame.width, frame.height, *padding)
+        return (frame.width, frame.height, *get_prop(frame, '_PadValues', list))
 
     def normalize(self, clip: vs.VideoNode, cast_to: tuple[int, int, int, int, int, int]) -> vs.VideoNode:
         width, height, *padding = cast_to
