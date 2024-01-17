@@ -142,7 +142,7 @@ class SSIM(LinearScaler):
 
     @inject_self.property
     def kernel_radius(self) -> int:
-        return self.ref.kernel_radius
+        return self.scaler.kernel_radius
 
 
 @dataclass
