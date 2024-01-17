@@ -369,7 +369,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                 )
 
                 if self._model >= Waifu2x.SwinUnetArt._model:
-                    def_bkwargs |= KwargsT(tf32=not self.fp16, force_fp16=self.fp16)
+                    def_bkwargs |= KwargsT(tf32=not self.fp16, force_fp16=False)
 
                 bkwargs = def_bkwargs | bkwargs
 
