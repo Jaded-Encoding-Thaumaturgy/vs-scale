@@ -142,7 +142,7 @@ class SSIM(LinearScaler):
 
     @inject_self.property
     def kernel_radius(self) -> int:
-        return self.ref.kernel_radius
+        return self.scaler.kernel_radius
 
 
 @dataclass
@@ -208,7 +208,9 @@ class Waifu2xCropHelper(ProcessVariableResClip[tuple[int, int, int, int, int, in
 
 
 class Waifu2xScaleHelper(ProcessVariableResClip):
-    def __init__(self, clip: vs.VideoNode, backend: object, backend_kwargs: KwargsT, kwargs: KwargsT, cache_size: int) -> None:
+    def __init__(
+        self, clip: vs.VideoNode, backend: object, backend_kwargs: KwargsT, kwargs: KwargsT, cache_size: int
+    ) -> None:
         super().__init__(clip, cache_size=cache_size)
 
         self.kwargs = kwargs
