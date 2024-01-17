@@ -297,7 +297,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
     num_streams: int | None = None
     """Number of gpu streams for the model."""
 
-    fp16: bool = True
+    fp16: bool = False
     """Whether to use float16 precision if available."""
 
     device_id: int = 0
@@ -368,7 +368,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                     num_streams=def_num_streams
                 )
 
-                if self._model >= Waifu2x.SwinUnetArt._model:
+                if 7 <= self._model <= 10:
                     def_bkwargs |= KwargsT(tf32=not self.fp16, force_fp16=False)
 
                 bkwargs = def_bkwargs | bkwargs
