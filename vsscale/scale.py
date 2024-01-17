@@ -307,10 +307,17 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
     """Input clip's matrix. Set only if necessary."""
 
     tiles: int | tuple[int, int] | None = None
-    """Process in separate tiles instead of the whole frame. Use if [V]RAM limited."""
+    """
+    Process in separate tiles instead of the whole frame. Use if [V]RAM limited.
+    Note that using tiling will have heavy (negative) implications for the model's quality.
+    Only use tiling if it's *absolutely* necessary!
+    """
 
     tilesize: int | tuple[int, int] | None = None
-    """Manually specify the size of a single tile."""
+    """
+    Manually specify the size of a single tile.
+    If None, automatically determines the sizes based on the number of tiles.
+    """
 
     overlap: int | tuple[int, int] | None = None
     """Overlap for reducing blocking artifacts between tile borders."""
