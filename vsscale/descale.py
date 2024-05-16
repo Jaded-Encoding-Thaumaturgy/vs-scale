@@ -6,7 +6,7 @@ from math import log2
 from typing import Callable, Iterable, Literal, Sequence, cast, overload
 
 from vsaa import Nnedi3
-from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT, Bilinear
+from vskernels import Bilinear, Catrom, Kernel, KernelT, Scaler, ScalerT
 from vsmasktools import GenericMaskT, normalize_mask
 from vstools import (
     CustomValueError, FieldBased, FieldBasedT, FuncExceptT, core, depth, expect_bits, get_h, get_prop, get_w, get_y,

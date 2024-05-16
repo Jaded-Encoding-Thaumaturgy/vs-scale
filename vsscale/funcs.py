@@ -73,8 +73,11 @@ class MergeScalers(GenericScaler):
         ]
 
     def scale(  # type: ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
+        width, height = self._wh_norm(clip, width, height)
+
         scalers, weights = cast(tuple[list[Scaler], list[float]], zip(*self.scalers))
 
         return combine(
@@ -136,9 +139,11 @@ class ClampScaler(GenericScaler):
 
     @inject_self
     def scale(  # type: ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
-        *, smooth: vs.VideoNode | None = None, **kwargs: Any
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[float, float] = (0, 0), *, smooth: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
+        width, height = self._wh_norm(clip, width, height)
+
         assert (self.undershoot or self.undershoot == 0) and (self.overshoot or self.overshoot == 0)
 
         ref = self._ref_scaler.scale(clip, width, height, shift, **kwargs)
@@ -235,9 +240,11 @@ class UnsharpLimitScaler(GenericScaler):
 
     @inject_self
     def scale(  # type: ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
-        *, smooth: vs.VideoNode | None = None, **kwargs: Any
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[float, float] = (0, 0), *, smooth: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
+        width, height = self._wh_norm(clip, width, height)
+
         fsrcnnx = self.ref_scaler.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):

@@ -73,8 +73,11 @@ class GenericScaler(Scaler):
         self.kwargs = kwargs
 
     def scale(  # type: ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
+        width, height = self._wh_norm(clip, width, height)
+
         kwargs = self.kwargs | kwargs
 
         output = None

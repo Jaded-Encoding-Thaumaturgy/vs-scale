@@ -43,8 +43,11 @@ class DPID(GenericScaler):
 
     @inject_self
     def scale(  # type: ignore[override]
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
+        width, height = self._wh_norm(clip, width, height)
+
         ref = clip
 
         if isinstance(self.ref, vs.VideoNode):
@@ -160,9 +163,11 @@ class DLISR(GenericScaler):
 
     @inject_self
     def scale(  # type: ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0),
-        *, matrix: MatrixT | None = None, **kwargs: Any
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[float, float] = (0, 0), *, matrix: MatrixT | None = None, **kwargs: Any
     ) -> vs.VideoNode:
+        width, height = self._wh_norm(clip, width, height)
+
         output = clip
 
         assert check_variable(clip, self.__class__)
@@ -421,12 +426,15 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
 
     @inject_self.init_kwargs.clean
     def scale(  # type:ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
         try:
             from vsmlrt import Backend  # type: ignore
         except ModuleNotFoundError as e:
             raise DependencyNotFoundError(self.__class__, e)
+
+        width, height = self._wh_norm(clip, width, height)
 
         wclip = clip
 

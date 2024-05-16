@@ -57,8 +57,11 @@ class PlaceboShaderBase(PlaceboShaderMeta):
 
     @inject_self
     def scale(  # type: ignore
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
+        width, height = self._wh_norm(clip, width, height)
+
         output, _ = expect_bits(clip, 16)
 
         fmt = get_video_format(output)
