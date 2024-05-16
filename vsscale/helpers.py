@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import partial
 from math import ceil, floor
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, cast
 
 from vsaa import Nnedi3
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
@@ -67,7 +67,7 @@ class GenericScaler(Scaler):
         )
 
     def __init__(
-        self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any
+        self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any  # type: ignore
     ) -> None:
         self.func = func
         self.kwargs = kwargs
@@ -133,7 +133,7 @@ class GenericScaler(Scaler):
         if is_dataclass(scaler_obj):
             from inspect import Signature
 
-            kwargs = dict()
+            kwargs = dict[str, ScalerT]()
 
             init_keys = Signature.from_callable(scaler_obj.__init__).parameters.keys()
 
@@ -149,7 +149,7 @@ class GenericScaler(Scaler):
             if kwargs:
                 scaler_obj = replace(scaler_obj, **kwargs)
 
-        return scaler_obj
+        return cast(Scaler, scaler_obj)
 
 
 def scale_var_clip(
@@ -247,8 +247,8 @@ class ScalingArgs:
     def kwargs(self, clip_or_rate: vs.VideoNode | float | None = None, /) -> KwargsT:
         kwargs = KwargsT()
         do_h, do_w = self._do()
-        up_rate_h, up_rate_w = (
-            self._up_rate(clip_or_rate)
+        up_rate_h, up_rate_w = tuple[float, float](
+            self._up_rate(clip_or_rate)  # type: ignore
             if clip_or_rate is None or isinstance(clip_or_rate, vs.VideoNode) else
             (clip_or_rate, clip_or_rate)
         )
@@ -269,6 +269,7 @@ class ScalingArgs:
 
     def descale(self, kernel: type[Kernel], clip: vs.VideoNode | None = None) -> vs.VideoNode:
         if not clip:
+            assert self.base_clip
             clip = self.base_clip
 
         do_h, do_w = self._do()
@@ -333,12 +334,12 @@ def fdescale_args(
 
     do_h, do_w = 'h' in mode.lower(), 'w' in mode.lower()
 
-    de_args = dict(
+    de_args = dict[str, Any](
         width=cropped_width if do_w else clip.width,
         height=cropped_height if do_h else clip.height
     )
 
-    up_args = dict()
+    up_args = dict[str, Any]()
 
     src_top = fallback(src_top, (cropped_height - src_height) / 2)
     src_left = fallback(src_left, (cropped_width - src_width) / 2)
