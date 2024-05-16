@@ -53,7 +53,6 @@ Check out the `how to contribute <contribute>` section!
     :caption: Functions
     :titlesonly:
 
-    submodules/descale
     submodules/exceptions
     submodules/funcs
     submodules/helpers
