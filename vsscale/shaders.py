@@ -39,7 +39,6 @@ class PlaceboShaderBase(PlaceboShaderMeta):
     sigmoidize: int | None = field(default=None, kw_only=True)
     sigmoid_center: float | None = field(default=None, kw_only=True)
     sigmoid_slope: float | None = field(default=None, kw_only=True)
-    lut_entries: int | None = field(default=None, kw_only=True)
     antiring: float | None = field(default=None, kw_only=True)
     filter_shader: str | None = field(default=None, kw_only=True)
     clamp: float | None = field(default=None, kw_only=True)
@@ -88,7 +87,6 @@ class PlaceboShaderBase(PlaceboShaderMeta):
             'chroma_loc': self.chroma_loc, 'matrix': self.matrix,
             'trc': self.trc, 'linearize': self.linearize,
             'sigmoidize': self.sigmoidize, 'sigmoid_center': self.sigmoid_center, 'sigmoid_slope': self.sigmoid_slope,
-            'lut_entries': self.lut_entries,
             'antiring': self.antiring, 'filter': self.filter_shader, 'clamp': self.clamp,
             'blur': self.blur, 'taper': self.taper, 'radius': self.radius,
             'param1': self.param1, 'param2': self.param2,
