@@ -191,22 +191,52 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
 
 
 class ArtCNN(BaseArtCNN):
+    """
+    Super-Resolution Convolutional Neural Networks optimised for anime.
+
+    Defaults to C16F64.
+    """
+
     _model = 2
 
     class C4F32(BaseArtCNN):
+        """
+        This has 4 internal convolution layers with 32 filters each.\n
+        If you need a faster model.
+        """
+
         _model = 0
 
     class C4F32_DS(BaseArtCNN):
+        """The same as C4F32 but intended to also sharpen and denoise."""
+
         _model = 1
 
     class C16F64(BaseArtCNN):
+        """
+        The default and (currently) preferred model size for upscaling with this model.\n
+        This has 16 internal convolution layers with 64 filters each.
+        """
+
         _model = 2
 
     class C16F64_DS(BaseArtCNN):
+        """The same as C16F64 but intended to also sharpen and denoise."""
+
         _model = 3
 
     class C4F32_Chroma(BaseArtCNN):
+        """
+        The smaller of the two chroma models.\n
+        These don't double the input clip and rather just try to enhance the chroma using luma information.
+        """
+
         _model = 4
 
     class C16F64_Chroma(BaseArtCNN):
+        """
+        The bigger of the two chroma models.\n
+        These don't double the input clip and rather just try to enhance the chroma using luma information.
+        """
+
         _model = 5
