@@ -116,6 +116,7 @@ def autoselect_backend(trt_args: KwargsT = {}, **kwargs: Any) -> Any:
 
 class _BaseArtCNN:
     _model: ClassVar[int]
+    _func = "ArtCNN"
 
 
 @dataclass
@@ -143,24 +144,32 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
     def scale(
         self,
         clip: vs.VideoNode,
-        width: int,
-        height: int,
+        width: int | None = None,
+        height: int | None = None,
         shift: tuple[float, float] = (0, 0),
         **kwargs: Any,
     ) -> vs.VideoNode:
         clip_format = get_video_format(clip)
         chroma_model = self._model in range(4, 6)
 
+        # The chroma models aren't supposed to change the video dimensions and API wise this is more comfortable.
+        if width is None or height is None:
+            if chroma_model:
+                width = clip.width
+                height = clip.height
+            else:
+                raise CustomValueError("You have to pass height and width if not using a chroma model.", self._func)
+
         if chroma_model and clip_format.color_family != vs.YUV:
-            raise CustomValueError("ArtCNN Chroma models need YUV input.", self)
+            raise CustomValueError("ArtCNN Chroma models need YUV input.", self._func)
 
         if not chroma_model and clip_format.color_family not in (vs.YUV, vs.GRAY):
-            raise CustomValueError("Regular ArtCNN models need YUV or GRAY input.", self)
+            raise CustomValueError("Regular ArtCNN models need YUV or GRAY input.", self._func)
 
         if chroma_model and (clip_format.subsampling_h != 0 or clip_format.subsampling_w != 0):
             if self.chroma_scaler is None:
                 raise CustomValueError(
-                    "ArtCNN needs a non subsampled clip. Either pass one or set `chroma_scaler`.", self
+                    "ArtCNN needs a non subsampled clip. Either pass one or set `chroma_scaler`.", self._func
                 )
 
             clip = Kernel.ensure_obj(self.chroma_scaler).resample(
