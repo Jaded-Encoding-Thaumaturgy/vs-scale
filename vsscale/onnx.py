@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
+from vskernels import KernelT, Kernel, Bilinear
 from vstools import (
     SPath,
     SPathLike,
@@ -12,11 +13,12 @@ from vstools import (
     CustomValueError,
     get_nvidia_version,
     KwargsT,
+    get_y,
 )
 
 from .helpers import GenericScaler
 
-__all__ = ["GenericOnnxScaler", "autoselect_backend"]
+__all__ = ["GenericOnnxScaler", "autoselect_backend", "ArtCNN"]
 
 
 @dataclass
@@ -110,3 +112,90 @@ def autoselect_backend(trt_args: KwargsT = {}, **kwargs: Any) -> Any:
             return Backend.NCNN_VK(fp16=fp16, **kwargs)
 
         return Backend.ORT_CPU(fp16=fp16, **kwargs) if hasattr(core, "ort") else Backend.OV_CPU(fp16=fp16, **kwargs)
+
+
+class _BaseArtCNN:
+    _model: ClassVar[int]
+
+
+@dataclass
+class BaseArtCNN(_BaseArtCNN, GenericScaler):
+    backend: Any | None = None
+    """
+    vs-mlrt backend. Will attempt to autoselect the most suitable one with fp16=True if None.\n
+    In order of trt > cuda > directml > nncn > cpu.
+    """
+    chroma_scaler: KernelT | None = None
+    """
+    Scaler to upscale the chroma with.\n
+    Necessary if you're trying to use one of the chroma models but aren't passing a 444 clip.\n
+    Bilinear is probably the safe option to use.
+    """
+
+    tiles: int | tuple[int, int] | None = None
+    """Splits up the frame into multiple tiles. Helps if you're lacking in vram but models may behave differently."""
+    tilesize: int | tuple[int, int] | None = None
+    overlap: int | tuple[int, int] | None = None
+
+    @inject_self
+    def scale(
+        self,
+        clip: vs.VideoNode,
+        width: int,
+        height: int,
+        shift: tuple[float, float] = (0, 0),
+        **kwargs: Any,
+    ) -> vs.VideoNode:
+        clip_format = get_video_format(clip)
+        chroma_model = self._model in range(4, 6)
+
+        if chroma_model and clip_format.color_family != vs.YUV:
+            raise CustomValueError("ArtCNN Chroma models need YUV input.", self)
+
+        if not chroma_model and clip_format.color_family not in (vs.YUV, vs.GRAY):
+            raise CustomValueError("Regular ArtCNN models need YUV or GRAY input.", self)
+
+        if chroma_model and (clip_format.subsampling_h != 0 or clip_format.subsampling_w != 0):
+            if self.chroma_scaler is None:
+                raise CustomValueError(
+                    "ArtCNN needs a non subsampled clip. Either pass one or set `chroma_scaler`.", self
+                )
+
+            clip = Kernel.ensure_obj(self.chroma_scaler).resample(
+                clip, clip_format.replace(subsampling_h=0, subsampling_w=0)
+            )
+
+        wclip = get_y(clip) if not chroma_model else clip
+
+        if self.backend is None:
+            self.backend = autoselect_backend()
+
+        from vsmlrt import ArtCNN as mlrt_ArtCNN, ArtCNNModel
+
+        scaled = mlrt_ArtCNN(
+            depth(wclip, 32), self.tiles, self.tilesize, self.overlap, ArtCNNModel(self._model), backend=self.backend
+        )
+
+        return self._finish_scale(scaled, wclip, width, height, shift)
+
+
+class ArtCNN(BaseArtCNN):
+    _model = 2
+
+    class ArtCNN_C4F32(BaseArtCNN):
+        _model = 0
+
+    class ArtCNN_C4F32_DS(BaseArtCNN):
+        _model = 1
+
+    class ArtCNN_C16F64(BaseArtCNN):
+        _model = 2
+
+    class ArtCNN_C16F64_DS(BaseArtCNN):
+        _model = 3
+
+    class ArtCNN_C4F32_Chroma(BaseArtCNN):
+        _model = 4
+
+    class ArtCNN_C16F64_Chroma(BaseArtCNN):
+        _model = 5
