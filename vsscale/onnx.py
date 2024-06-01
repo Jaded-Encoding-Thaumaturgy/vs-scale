@@ -182,20 +182,20 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
 class ArtCNN(BaseArtCNN):
     _model = 2
 
-    class ArtCNN_C4F32(BaseArtCNN):
+    class C4F32(BaseArtCNN):
         _model = 0
 
-    class ArtCNN_C4F32_DS(BaseArtCNN):
+    class C4F32_DS(BaseArtCNN):
         _model = 1
 
-    class ArtCNN_C16F64(BaseArtCNN):
+    class C16F64(BaseArtCNN):
         _model = 2
 
-    class ArtCNN_C16F64_DS(BaseArtCNN):
+    class C16F64_DS(BaseArtCNN):
         _model = 3
 
-    class ArtCNN_C4F32_Chroma(BaseArtCNN):
+    class C4F32_Chroma(BaseArtCNN):
         _model = 4
 
-    class ArtCNN_C16F64_Chroma(BaseArtCNN):
+    class C16F64_Chroma(BaseArtCNN):
         _model = 5
