@@ -11,11 +11,12 @@ from vstools import (
     depth,
     CustomValueError,
     get_nvidia_version,
+    KwargsT,
 )
 
 from .helpers import GenericScaler
 
-__all__ = ["GenericOnnxScaler"]
+__all__ = ["GenericOnnxScaler", "autoselect_backend"]
 
 
 @dataclass
@@ -27,7 +28,7 @@ class GenericOnnxScaler(GenericScaler):
     backend: Any | None = None
     """
     vs-mlrt backend. Will attempt to autoselect the most suitable one with fp16=True if None.\n
-    In order of trt > cuda > nncn > cpu.
+    In order of trt > cuda > directml > nncn > cpu.
     """
     tiles: int | tuple[int, int] | None = None
     """Splits up the frame into multiple tiles. Helps if you're lacking in vram but models may behave differently."""
@@ -53,18 +54,14 @@ class GenericOnnxScaler(GenericScaler):
         if clip_format.subsampling_h != 0 or clip_format.subsampling_w != 0:
             raise CustomValueError("This scaler requires non subsampled input!", self)
 
-        wclip, og_depth = expect_bits(clip, 32)
+        wclip, _ = expect_bits(clip, 32)
 
         from vsmlrt import inference, calc_tilesize, init_backend
 
         if self.overlap is None:
             overlap_w = overlap_h = 8
         else:
-            overlap_w, overlap_h = (
-                (self.overlap, self.overlap)
-                if isinstance(self.overlap, int)
-                else self.overlap
-            )
+            overlap_w, overlap_h = (self.overlap, self.overlap) if isinstance(self.overlap, int) else self.overlap
 
         (tile_w, tile_h), (overlap_w, overlap_h) = calc_tilesize(
             tiles=self.tiles,
@@ -77,9 +74,7 @@ class GenericOnnxScaler(GenericScaler):
         )
 
         if tile_w % 1 != 0 or tile_h % 1 != 0:
-            raise CustomValueError(
-                f"Tile size must be divisible by 1 ({tile_w}, {tile_h})", self
-            )
+            raise CustomValueError(f"Tile size must be divisible by 1 ({tile_w}, {tile_h})", self)
 
         backend = init_backend(backend=self.backend, trt_opt_shapes=(tile_w, tile_h))
 
@@ -90,27 +85,28 @@ class GenericOnnxScaler(GenericScaler):
             overlap=(overlap_w, overlap_h),
             tilesize=(tile_w, tile_h),
         )
-        scaled = self._finish_scale(scaled, wclip, width, height, shift)
-        return depth(scaled, og_depth)
+        return self._finish_scale(scaled, clip, width, height, shift)
 
 
-def autoselect_backend() -> Any:
+def autoselect_backend(trt_args: KwargsT = {}, **kwargs: Any) -> Any:
     from vsmlrt import Backend
+    import os
+
+    fp16 = kwargs.pop("fp16", True)
 
     cuda = get_nvidia_version() is not None
     if cuda:
         if hasattr(core, "trt"):
-            return Backend.TRT(fp16=True)
+            kwargs.update(trt_args)
+            return Backend.TRT(fp16=fp16, **trt_args)
         elif hasattr(core, "ort"):
-            return Backend.ORT_CUDA(fp16=True)
+            return Backend.ORT_CUDA(fp16=fp16, **kwargs)
         else:
-            return Backend.OV_GPU(fp16=True)
+            return Backend.OV_GPU(fp16=fp16, **kwargs)
     else:
-        if hasattr(core, "ncnn"):
-            return Backend.NCNN_VK(fp16=True)
-        else:
-            return (
-                Backend.ORT_CPU(fp16=True)
-                if hasattr(core, "ort")
-                else Backend.OV_CPU(fp16=True)
-            )
+        if hasattr(core, "ort") and os.name == "nt":
+            return Backend.ORT_DML(fp16=fp16, **kwargs)
+        elif hasattr(core, "ncnn"):
+            return Backend.NCNN_VK(fp16=fp16, **kwargs)
+
+        return Backend.ORT_CPU(fp16=fp16, **kwargs) if hasattr(core, "ort") else Backend.OV_CPU(fp16=fp16, **kwargs)
