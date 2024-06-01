@@ -137,6 +137,8 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
     tilesize: int | tuple[int, int] | None = None
     overlap: int | tuple[int, int] | None = None
 
+    _static_kernel_radius = 2
+
     @inject_self
     def scale(
         self,
