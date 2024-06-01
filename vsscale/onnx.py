@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, ClassVar
-from vskernels import KernelT, Kernel, Bilinear
+from vskernels import KernelT, Kernel
 from vstools import (
     SPath,
     SPathLike,
