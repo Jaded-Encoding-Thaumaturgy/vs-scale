@@ -52,10 +52,6 @@ class GenericOnnxScaler(GenericScaler):
         if self.backend is None:
             self.backend = autoselect_backend()
 
-        clip_format = get_video_format(clip)
-        if clip_format.subsampling_h != 0 or clip_format.subsampling_w != 0:
-            raise CustomValueError("This scaler requires non subsampled input!", self)
-
         wclip, _ = expect_bits(clip, 32)
 
         from vsmlrt import inference, calc_tilesize, init_backend
