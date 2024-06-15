@@ -236,3 +236,11 @@ class ArtCNN(BaseArtCNN):
         """
 
         _model = 5
+
+    class R16F96(BaseArtCNN):
+        """
+        The biggest model. Can compete with or outperform Waifu2x Cunet.\n
+        Also quite a bit slower but is less heavy on vram.
+        """
+
+        _model = 6
