@@ -180,7 +180,12 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
         from vsmlrt import ArtCNN as mlrt_ArtCNN, ArtCNNModel
 
         scaled = mlrt_ArtCNN(
-            depth(wclip, 32), self.tiles, self.tilesize, self.overlap, ArtCNNModel(self._model), backend=self.backend
+            depth(wclip, 32).std.Limiter(),
+            self.tiles,
+            self.tilesize,
+            self.overlap,
+            ArtCNNModel(self._model),
+            backend=self.backend,
         )
 
         return self._finish_scale(scaled, wclip, width, height, shift)
