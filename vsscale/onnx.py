@@ -77,7 +77,7 @@ class GenericOnnxScaler(GenericScaler):
         backend = init_backend(backend=self.backend, trt_opt_shapes=(tile_w, tile_h))
 
         scaled = inference(
-            wclip,
+            wclip.std.Limiter(),
             network_path=str(SPath(self.model).resolve()),
             backend=backend,
             overlap=(overlap_w, overlap_h),
