@@ -77,7 +77,7 @@ class GenericOnnxScaler(GenericScaler):
         backend = init_backend(backend=self.backend, trt_opt_shapes=(tile_w, tile_h))
 
         scaled = inference(
-            wclip,
+            wclip.std.Limiter(),
             network_path=str(SPath(self.model).resolve()),
             backend=backend,
             overlap=(overlap_w, overlap_h),
@@ -180,7 +180,12 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
         from vsmlrt import ArtCNN as mlrt_ArtCNN, ArtCNNModel
 
         scaled = mlrt_ArtCNN(
-            depth(wclip, 32), self.tiles, self.tilesize, self.overlap, ArtCNNModel(self._model), backend=self.backend
+            depth(wclip, 32).std.Limiter(),
+            self.tiles,
+            self.tilesize,
+            self.overlap,
+            ArtCNNModel(self._model),
+            backend=self.backend,
         )
 
         return self._finish_scale(scaled, wclip, width, height, shift)
