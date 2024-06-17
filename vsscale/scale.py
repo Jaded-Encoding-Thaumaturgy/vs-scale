@@ -188,16 +188,9 @@ class DLISR(GenericScaler):
     _static_kernel_radius = 2
 
 
-@lru_cache
-def mod_padding(sizes: tuple[int, int], mod: int = 16, min: int = 4) -> tuple[int, int, int, int]:
-    ph, pv = (mod - (((x + min * 2) - 1) % mod + 1) for x in sizes)
-    left, top = floor(ph / 2), floor(pv / 2)
-    return tuple(x + min for x in (left, ph - left, top, pv - top))  # type: ignore
-
-
 class Waifu2xPadHelper(ProcessVariableResClip):
     def normalize(self, clip: vs.VideoNode, cast_to: tuple[int, int]) -> vs.VideoNode:
-        padding = mod_padding(cast_to)
+        padding = padder.mod_padding(cast_to)
 
         return padder.MIRROR(super().normalize(clip, cast_to), *padding).std.SetFrameProp('_PadValues', padding)
 
