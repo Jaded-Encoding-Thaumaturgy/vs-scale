@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import lru_cache, partial
-from math import ceil, floor, log2
+from functools import partial
+from math import ceil, log2
 from typing import Any, ClassVar, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
