@@ -31,7 +31,7 @@ setuptools.setup(
         package_name
     ],
     package_data={
-        package_name: ['py.typed', 'shaders/*.glsl']
+        package_name: ['py.typed']
     },
     classifiers=[
         'Programming Language :: Python :: 3',

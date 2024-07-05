@@ -139,7 +139,7 @@ class ShaderFile(ShaderFileBase):
         """Get a path from the shader member, name or path."""
 
         if self is not ShaderFile.CUSTOM:
-            return Path(__file__).parent / 'shaders' / self.value
+            file_name = self.value
 
         if file_name is MISSING:  # type: ignore
             raise TypeError("ShaderFile.__call__() missing 1 required positional argument: 'file_name'")
