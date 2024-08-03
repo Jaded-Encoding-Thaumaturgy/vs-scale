@@ -6,7 +6,7 @@ from math import ceil, log2
 from typing import Any, ClassVar, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
-from vskernels import Hermite, LinearScaler, Scaler, ScalerT, SetsuCubic, ZewiaCubic
+from vskernels import Catrom, Hermite, LinearScaler, Mitchell, Scaler, ScalerT
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, VSFunction, check_ref_clip,
@@ -35,7 +35,7 @@ class DPID(GenericScaler):
     of only the most distinct pixels.
     """
 
-    ref: vs.VideoNode | ScalerT = ZewiaCubic
+    ref: vs.VideoNode | ScalerT = Catrom
     """VideoNode or Scaler to obtain the downscaled reference for DPID."""
 
     planes: PlanesT = None
@@ -152,7 +152,7 @@ class SSIM(LinearScaler):
 class DLISR(GenericScaler):
     """Use Nvidia NGX Technology DLISR DNN to scale up nodes. https://developer.nvidia.com/rtx/ngx"""
 
-    scaler: ScalerT = field(default_factory=lambda: DPID(0.5, SetsuCubic))
+    scaler: ScalerT = field(default_factory=lambda: DPID(0.5, Mitchell))
     """Scaler to use to downscale clip to desired resolution, if necessary."""
 
     matrix: MatrixT | None = None
