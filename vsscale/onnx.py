@@ -146,7 +146,7 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
         **kwargs: Any,
     ) -> vs.VideoNode:
         clip_format = get_video_format(clip)
-        chroma_model = self._model in range(4, 6)
+        chroma_model = self._model in [4, 5, 9]
 
         # The chroma models aren't supposed to change the video dimensions and API wise this is more comfortable.
         if width is None or height is None:
@@ -203,7 +203,7 @@ class ArtCNN(BaseArtCNN):
     class C4F32(BaseArtCNN):
         """
         This has 4 internal convolution layers with 32 filters each.\n
-        If you need a faster model.
+        If you need an even faster model.
         """
 
         _model = 0
@@ -215,7 +215,7 @@ class ArtCNN(BaseArtCNN):
 
     class C16F64(BaseArtCNN):
         """
-        The default and (currently) preferred model size for upscaling with this model.\n
+        The current default model. Looks decent and very fast. Good for AA purposes.\n
         This has 16 internal convolution layers with 64 filters each.
         """
 
@@ -249,3 +249,23 @@ class ArtCNN(BaseArtCNN):
         """
 
         _model = 6
+
+    class R8F64(BaseArtCNN):
+        """
+        A smaller and faster version of R16F96 but very competitive.
+        """
+
+        _model = 7
+
+    class R8F64_DS(BaseArtCNN):
+        """The same as R8F64 but intended to also sharpen and denoise."""
+
+        _model = 8
+
+    class R8F64_Chroma(BaseArtCNN):
+        """
+        The new and fancy big chroma model.
+        These don't double the input clip and rather just try to enhance the chroma using luma information.
+        """
+
+        _model = 9
