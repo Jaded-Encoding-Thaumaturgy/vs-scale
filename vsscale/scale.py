@@ -249,6 +249,11 @@ class Waifu2xResizeHelper(ProcessVariableResClip[tuple[int, int]]):
     def normalize(self, wclip: vs.VideoNode, cast_to: tuple[int, int]) -> vs.VideoNode:
         mult = max(int(log2(ceil(size))) for size in (self.width / cast_to[0], self.height / cast_to[1]))
 
+        try:
+            wclip = wclip.std.Limiter(planes=self.planes)
+        except vs.Error:
+            wclip = norm_expr(wclip, 'x 0 1 clamp', planes=self.planes)
+
         for _ in range(mult):
             if self.do_padding:
                 wclip = Waifu2xPadHelper.from_clip(wclip)
@@ -267,12 +272,7 @@ class Waifu2xResizeHelper(ProcessVariableResClip[tuple[int, int]]):
 
         return wclip
 
-    def process(self, clip: vs.VideoNode) -> vs.VideoNode:
-        try:
-            wclip = clip.std.Limiter(planes=self.planes)
-        except vs.Error:
-            wclip = norm_expr(clip, 'x 0 1 clamp', planes=self.planes)
-
+    def process(self, wclip: vs.VideoNode) -> vs.VideoNode:
         if self.is_gray:
             wclip = wclip.std.ShufflePlanes(0, vs.GRAY)
 
