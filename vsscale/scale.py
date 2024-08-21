@@ -207,7 +207,7 @@ class Waifu2xCropHelper(ProcessVariableResClip[tuple[int, int, int, int, int, in
 
 class Waifu2xScaleHelper(ProcessVariableResClip):
     def __init__(
-        self, clip: vs.VideoNode, backend: object, backend_kwargs: KwargsT, kwargs: KwargsT, cache_size: int
+        self, clip: vs.VideoNode, backend: type, backend_kwargs: KwargsT, kwargs: KwargsT, cache_size: int
     ) -> None:
         super().__init__(clip, cache_size=cache_size)
 
@@ -222,16 +222,16 @@ class Waifu2xScaleHelper(ProcessVariableResClip):
             if cast_to[0] > max_shapes[0] or cast_to[1] > max_shapes[1]:
                 self.backend_kwargs.update(max_shapes=cast_to)
 
-        return MlrtWaifu2x(
+        return MlrtWaifu2x(  # type: ignore
             super().normalize(clip, cast_to), backend=self.backend(**self.backend_kwargs), **self.kwargs
         )
 
 
-class Waifu2xResizeHelper(ProcessVariableResClip[tuple[int, int]]):
+class Waifu2xResizeHelper(ProcessVariableResClip):
     def __init__(
         self, clip: vs.VideoNode, width: int, height: int, planes: PlanesT, is_gray: bool,
         scaler: Scaler, do_padding: bool, w2x_kwargs: KwargsT, w2x_cache_size: int,
-        backend: object, backend_kwargs: KwargsT
+        backend: type, backend_kwargs: KwargsT
     ) -> None:
         super().__init__(clip, (width, height))
 
@@ -397,7 +397,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
     @property
     def _backend(self) -> object:
         try:
-            from vsmlrt import Backend  # type: ignore
+            from vsmlrt import Backend
         except ModuleNotFoundError as e:
             raise DependencyNotFoundError(self.__class__, e)
 
@@ -423,7 +423,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
         shift: tuple[float, float] = (0, 0), **kwargs: Any
     ) -> vs.VideoNode:
         try:
-            from vsmlrt import Backend  # type: ignore
+            from vsmlrt import Backend
         except ModuleNotFoundError as e:
             raise DependencyNotFoundError(self.__class__, e)
 
@@ -431,7 +431,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
 
         wclip = clip
 
-        check_variable_format(clip, self.scale)
+        assert check_variable_format(clip, self.scale)
 
         matrix = self.matrix
         is_gray = clip.format.color_family is vs.GRAY
