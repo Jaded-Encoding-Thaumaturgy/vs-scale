@@ -11,6 +11,8 @@ from vstools import (
     expect_bits,
     depth,
     CustomValueError,
+    DependencyNotFoundError,
+    NotFoundEnumValue,
     get_nvidia_version,
     KwargsT,
     get_y,
@@ -145,6 +147,11 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
         shift: tuple[float, float] = (0, 0),
         **kwargs: Any,
     ) -> vs.VideoNode:
+        try:
+            from vsmlrt import ArtCNN as mlrt_ArtCNN, ArtCNNModel
+        except ImportError:
+            raise DependencyNotFoundError("vsmlrt", self._func)
+
         clip_format = get_video_format(clip)
         chroma_model = self._model in [4, 5, 9]
 
@@ -172,12 +179,13 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
                 clip, clip_format.replace(subsampling_h=0, subsampling_w=0)
             )
 
+        if self._model not in ArtCNNModel.__members__.values():
+            raise NotFoundEnumValue(f'Invalid model: \'{self._model}\'. Please update \'vsmlrt\'!', self._func)
+
         wclip = get_y(clip) if not chroma_model else clip
 
         if self.backend is None:
             self.backend = autoselect_backend()
-
-        from vsmlrt import ArtCNN as mlrt_ArtCNN, ArtCNNModel
 
         scaled = mlrt_ArtCNN(
             depth(wclip, 32).std.Limiter(),
