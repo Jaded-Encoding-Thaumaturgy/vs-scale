@@ -11,7 +11,7 @@ from vstools import (
 )
 
 __all__ = [
-    'Resolution', 'DescaleAttempt',
+    'DescaleAttempt',
     'DescaleMode', 'DescaleResult', 'PlaneStatsKind',
     'DescaleModeWithInfo'
 ]
