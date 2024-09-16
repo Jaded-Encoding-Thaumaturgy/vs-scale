@@ -8,7 +8,7 @@ from vsaa import Nnedi3
 from vsexprtools import ExprOp, combine, norm_expr
 from vskernels import Scaler, ScalerT
 from vsmasktools import ringing_mask
-from vsrgtools import LimitFilterMode, RepairMode, limit_filter, median_clips, repair, unsharp_masked
+from vsrgtools import LimitFilterMode, RepairMode, MeanMode, limit_filter, repair, unsharp_masked
 from vstools import (
     EXPR_VARS, ColorRange, CustomIndexError, CustomOverflowError, P, check_ref_clip, inject_self, scale_8bit,
     scale_value, vs
@@ -265,7 +265,7 @@ class UnsharpLimitScaler(GenericScaler):
             return limit_filter(smooth, fsrcnnx, smooth_sharp, self.merge_mode)
 
         if self.merge_mode:
-            return median_clips(smooth, fsrcnnx, smooth_sharp)
+            return MeanMode.MEDIAN(smooth, fsrcnnx, smooth_sharp)
 
         return combine([smooth, fsrcnnx, smooth_sharp], ExprOp.MIN)
 
