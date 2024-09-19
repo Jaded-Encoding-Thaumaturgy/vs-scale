@@ -178,8 +178,8 @@ class ClampScaler(GenericScaler):
             merged = norm_expr(
                 [ref, smooth, smooth.std.Maximum(), smooth.std.Minimum()],
                 expression, merge_weight=merge_weight, ref_weight=1.0 - merge_weight,
-                undershoot=scale_value(self.undershoot, 32, clip),
-                overshoot=scale_value(self.overshoot, 32, clip),
+                undershoot=scale_value(self.undershoot, 32, clip, ColorRange.FULL),
+                overshoot=scale_value(self.overshoot, 32, clip, ColorRange.FULL),
                 clamp_max=[scale_8bit(clip, 235), scale_8bit(clip, 240)]
             )
         else:
