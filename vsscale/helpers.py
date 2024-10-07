@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from copy import copy
 from dataclasses import dataclass, field
 from functools import partial
 from math import ceil, floor
-from typing import Any, Callable, Protocol, cast
+from types import NoneType
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Protocol, Self, TypeAlias, cast, overload
 
 from vsaa import Nnedi3
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
@@ -17,6 +19,8 @@ __all__ = [
     'fdescale_args',
     'descale_args',
 
+    'CropRel',
+    'CropAbs',
     'ScalingArgs'
 ]
 
@@ -216,6 +220,61 @@ def scale_var_clip(
     return out_clip.std.FrameEval(_eval_scale, clip, clip)
 
 
+LeftCrop: TypeAlias = int
+RightCrop: TypeAlias = int
+TopCrop: TypeAlias = int
+BottomCrop: TypeAlias = int
+
+if TYPE_CHECKING:
+    @dataclass(frozen=True)
+    class Crop(tuple[int, int, int, int]):
+        ...
+
+        def to_rel(self, base_clip: vs.VideoNode) -> CropRel:
+            ...
+
+    @dataclass(frozen=True)
+    class CropRel(Crop):
+        left: int = 0
+        right: int = 0
+        top: int = 0
+        bottom: int = 0
+
+
+    @dataclass(frozen=True)
+    class CropAbs(Crop):
+        width: int
+        height: int
+        left: int = 0
+        top: int = 0
+
+else:
+    class CropRel(NamedTuple):
+        left: int = 0
+        right: int = 0
+        top: int = 0
+        bottom: int = 0
+
+        def to_rel(self, base_clip: vs.VideoNode) -> CropRel:
+            return copy(self)
+
+
+    class CropAbs(NamedTuple):
+        width: int
+        height: int
+        left: int = 0
+        top: int = 0
+        
+        def to_rel(self, base_clip: vs.VideoNode) -> CropRel:
+            return CropRel(
+                self.left,
+                base_clip.width - self.width - self.left,
+                self.top,
+                base_clip.height - self.height - self.top
+            )
+
+
+
 @dataclass
 class ScalingArgs:
     width: int
@@ -226,16 +285,12 @@ class ScalingArgs:
     src_left: float
     mode: str = 'hw'
 
-    base_clip: vs.VideoNode | None = None
-
     def _do(self) -> tuple[bool, bool]:
         return 'h' in self.mode.lower(), 'w' in self.mode.lower()
 
     def _up_rate(self, clip: vs.VideoNode | None = None) -> tuple[float, float]:
         if clip is None:
             return 1.0, 1.0
-
-        assert self.base_clip
 
         do_h, do_w = self._do()
 
@@ -245,13 +300,14 @@ class ScalingArgs:
         )
 
     def kwargs(self, clip_or_rate: vs.VideoNode | float | None = None, /) -> KwargsT:
-        kwargs = KwargsT()
+        kwargs = dict[str, Any]()
+
         do_h, do_w = self._do()
-        up_rate_h, up_rate_w = tuple[float, float](
-            self._up_rate(clip_or_rate)  # type: ignore
-            if clip_or_rate is None or isinstance(clip_or_rate, vs.VideoNode) else
-            (clip_or_rate, clip_or_rate)
-        )
+
+        if isinstance(clip_or_rate, (vs.VideoNode, NoneType)):
+            up_rate_h, up_rate_w = self._up_rate(clip_or_rate)
+        else:
+            up_rate_h, up_rate_w = clip_or_rate, clip_or_rate
 
         if do_h:
             kwargs.update(
@@ -267,18 +323,87 @@ class ScalingArgs:
 
         return kwargs
 
-    def descale(self, kernel: type[Kernel], clip: vs.VideoNode | None = None) -> vs.VideoNode:
-        if not clip:
-            assert self.base_clip
-            clip = self.base_clip
+    @overload
+    @classmethod
+    def from_args(
+        cls,
+        base_clip: vs.VideoNode,
+        height: int, width: int | None = None,
+        /,
+        *,
+        src_top: float = ..., src_left: float = ...,
+        mode: str = 'hw'
+    ) -> Self:
+        ...
 
-        do_h, do_w = self._do()
+    @overload
+    @classmethod
+    def from_args(
+        cls,
+        base_clip: vs.VideoNode,
+        height: float, width: float | None = ...,
+        /,
+        base_height: int | None = ..., base_width: int | None = ...,
+        src_top: float = ..., src_left: float = ...,
+        crop: Crop | tuple[LeftCrop, RightCrop, TopCrop, BottomCrop] = ...,
+        mode: str = 'hw'
+    ) -> Self:
+        ...
 
-        return kernel.descale(
-            clip,
-            self.width if do_w else clip.width,
-            self.height if do_h else clip.height,
-            **self.kwargs()
+    @classmethod
+    def from_args(
+        cls,
+        base_clip: vs.VideoNode,
+        height: int | float, width: int | float | None = None,
+        base_height: int | None = None, base_width: int | None = None,
+        src_top: float = 0, src_left: float = 0,
+        crop: Crop | tuple[LeftCrop, RightCrop, TopCrop, BottomCrop] | None = None,
+        mode: str = 'hw'
+    ) -> Self:
+        crop = CropRel(*crop).to_rel(base_clip) if crop else CropRel()
+
+        ratio = height / base_clip.height
+
+        if width is None:
+            if isinstance(height, int):
+                width = get_w(height, base_clip, 2)
+            else:
+                width = ratio * base_clip.width
+
+        if all([
+            isinstance(height, int),
+            isinstance(width, int),
+            base_height is None,
+            base_width is None,
+            crop == (0, 0, 0, 0)
+        ]):
+            return cls(int(width), int(height), int(width), int(height), src_top, src_left, mode)
+
+        if base_height is None:
+            base_height = mod2(ceil(height))
+
+        if base_width is None:
+            base_width = mod2(ceil(width))
+
+        margin_left = (base_width - width) / 2 + ratio * crop.left
+        margin_right = (base_width - width) / 2 + ratio * crop.right
+        cropped_width = base_width - floor(margin_left) - floor(margin_right)
+
+        margin_top = (base_height - height) / 2 + ratio * crop.top
+        margin_bottom = (base_height - height) / 2 + ratio * crop.bottom
+        cropped_height = base_height - floor(margin_top) - floor(margin_bottom)
+
+        cropped_src_width = ratio * (base_clip.width - crop.left - crop.right)
+        cropped_src_left = margin_left - floor(margin_left) + src_left
+
+        cropped_src_height = ratio * (base_clip.height - crop.top - crop.bottom)
+        cropped_src_top = margin_top - floor(margin_top) + src_top
+
+        return cls(
+            cropped_width, cropped_height,
+            cropped_src_width, cropped_src_height,
+            cropped_src_top, cropped_src_left,
+            mode
         )
 
 
@@ -290,31 +415,14 @@ def descale_args(
     crop_left: int = 0, crop_right: int = 0,
     mode: str = 'hw'
 ) -> ScalingArgs:
-    base_height = fallback(base_height, mod2(ceil(src_height)))
-    base_width = fallback(base_width, get_w(base_height, clip, 2))
-
-    ratio = src_height / (clip.height + crop_top + crop_bottom)
-    src_width = fallback(src_width, ratio * (clip.width + crop_left + crop_right))
-
-    margin_left = (base_width - src_width) / 2 + ratio * crop_left
-    margin_right = (base_width - src_width) / 2 + ratio * crop_right
-    cropped_width = base_width - floor(margin_left) - floor(margin_right)
-
-    margin_top = (base_height - src_height) / 2 + ratio * crop_top
-    margin_bottom = (base_height - src_height) / 2 + ratio * crop_bottom
-    cropped_height = base_height - floor(margin_top) - floor(margin_bottom)
-
-    cropped_src_width = ratio * clip.width
-    cropped_src_left = margin_left - floor(margin_left)
-
-    cropped_src_height = ratio * clip.height
-    cropped_src_top = margin_top - floor(margin_top)
-
-    return ScalingArgs(
-        cropped_width, cropped_height,
-        cropped_src_width, cropped_src_height,
-        cropped_src_top, cropped_src_left,
-        mode, clip
+    # warnings
+    return ScalingArgs.from_args(
+        clip.std.AddBorders(crop_left, crop_right, crop_top, crop_bottom),
+        src_height, src_width,
+        base_height, base_width,
+        0, 0,
+        CropRel(crop_left, crop_right, crop_top, crop_bottom),
+        mode
     )
 
 
