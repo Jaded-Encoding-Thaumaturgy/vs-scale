@@ -16,6 +16,7 @@ from vstools import (
 from .helpers import BottomCrop, CropRel, LeftCrop, RightCrop, ScalingArgs, TopCrop
 from .onnx import ArtCNN
 
+
 RescaleT = TypeVar('RescaleT', bound="RescaleBase")
 
 
@@ -65,7 +66,9 @@ class RescaleBase:
             pass
 
     @staticmethod
-    def _apply_field_based(function: Callable[[RescaleT, vs.VideoNode], vs.VideoNode]) -> Callable[[RescaleT, vs.VideoNode], vs.VideoNode]:
+    def _apply_field_based(
+        function: Callable[[RescaleT, vs.VideoNode], vs.VideoNode]
+    ) -> Callable[[RescaleT, vs.VideoNode], vs.VideoNode]:
         @wraps(function)
         def wrap(self: RescaleT, clip: vs.VideoNode) -> vs.VideoNode:
             if self.field_based:
@@ -77,7 +80,9 @@ class RescaleBase:
         return wrap
 
     @staticmethod
-    def _add_props(function: Callable[[RescaleT, vs.VideoNode], vs.VideoNode]) -> Callable[[RescaleT, vs.VideoNode], vs.VideoNode]:
+    def _add_props(
+        function: Callable[[RescaleT, vs.VideoNode], vs.VideoNode]
+    ) -> Callable[[RescaleT, vs.VideoNode], vs.VideoNode]:
         @wraps(function)
         def wrap(self: RescaleT, clip: vs.VideoNode) -> vs.VideoNode:
             w, h = (
@@ -104,10 +109,10 @@ class RescaleBase:
     @_apply_field_based
     def _generate_rescale(self, clip: vs.VideoNode) -> vs.VideoNode:
         return self.kernel.scale(
-                clip,
-                self.clipy.width, self.clipy.height,
-                **self.descale_args.kwargs(),
-                border_handling=self.border_handling
+            clip,
+            self.clipy.width, self.clipy.height,
+            **self.descale_args.kwargs(),
+            border_handling=self.border_handling
         )
 
     @_add_props
@@ -167,14 +172,19 @@ class Rescale(RescaleBase):
         """Initialize the rescaling process.
 
         :param clip:                Clip to be rescaled
-        :param height:              Height to be descaled to. Forcing the value to float will ensure a fractionnal descale
+        :param height:              Height to be descaled to.
+                                    Forcing the value to float will ensure a fractionnal descale
         :param kernel:              Kernel used for descaling
         :param upscaler:            Scaler that supports doubling, defaults to ArtCNN
-        :param downscaler:          Scaler used for downscaling the upscaled clip back to input res, defaults to Hermite(linear=True)
+        :param downscaler:          Scaler used for downscaling the upscaled clip back to input res,
+                                    defaults to Hermite(linear=True)
         :param width:               Width to be descaled to. If None, automatically calculated from the height
-        :param base_height:         Integer height at which the clip will be contained. If None, automatically calculated from the height
-        :param base_width:          Integer width at which the clip will be contained. If None, automatically calculated from the width
-        :param crop:                Cropping values to apply before descale. The ratio descale height / source height will be preserved even after descale.
+        :param base_height:         Integer height at which the clip will be contained.
+                                    If None, automatically calculated from the height
+        :param base_width:          Integer width at which the clip will be contained.
+                                    If None, automatically calculated from the width
+        :param crop:                Cropping values to apply before descale.
+                                    The ratio descale height / source height will be preserved even after descale.
                                     The cropped area is restored when calling the `upscale` property.
         :param shift:               Shifts to apply during descale and upscale, defaults to (0, 0)
         :param field_based:         Parameter specifying the source is a cross-converted/interlaced upscaled content
@@ -182,7 +192,8 @@ class Rescale(RescaleBase):
                                     Accepted values are:
                                         0: Assume the image was resized with mirror padding.
                                         1: Assume the image was resized with zero padding.
-                                        2: Assume the image was resized with extend padding, where the outermost row was extended infinitely far.
+                                        2: Assume the image was resized with extend padding,
+                                           where the outermost row was extended infinitely far.
                                     Defaults to 0
         """
         self._line_mask: vs.VideoNode | None = None
@@ -191,7 +202,9 @@ class Rescale(RescaleBase):
         self._crop = crop
         self._pre = clip
 
-        self.descale_args = ScalingArgs.from_args(clip, height, width, base_height, base_width, shift[0], shift[1], crop, mode='hw')
+        self.descale_args = ScalingArgs.from_args(
+            clip, height, width, base_height, base_width, shift[0], shift[1], crop, mode='hw'
+        )
 
         super().__init__(clip, kernel, upscaler, downscaler, field_based, border_handling)
 
@@ -245,7 +258,11 @@ class Rescale(RescaleBase):
         if self._crop > (0, 0, 0, 0):
             pre_y = get_y(self._pre)
             black = pre_y.std.BlankClip()
-            mask = norm_expr(black, _get_region_expr(black, *self._crop, replace=f'{get_peak_value(black, False, ColorRange.FULL)} x'))
+            mask = norm_expr(
+                black, _get_region_expr(
+                    black, *self._crop, replace=f'{get_peak_value(black, False, ColorRange.FULL)} x'
+                )
+            )
 
             upscale = core.std.MaskedMerge(upscale.std.AddBorders(*self._crop), pre_y, mask)
 
@@ -253,7 +270,9 @@ class Rescale(RescaleBase):
 
     @property
     def line_mask(self) -> vs.VideoNode:
-        lm  = self._line_mask or self.clipy.std.BlankClip(color=get_peak_value(self.clipy, False, ColorRange.FULL))
+        lm = self._line_mask or self.clipy.std.BlankClip(
+            color=get_peak_value(self.clipy, False, ColorRange.FULL)
+        )
 
         if self.border_handling:
             px = (self.kernel.kernel_radius, ) * 4
@@ -301,7 +320,9 @@ class Rescale(RescaleBase):
     def ignore_mask(self) -> None:
         self._ignore_mask = None
 
-    def default_line_mask(self, clip: vs.VideoNode | None = None, scaler: ScalerT = Bilinear, **kwargs: Any) -> vs.VideoNode:
+    def default_line_mask(
+        self, clip: vs.VideoNode | None = None, scaler: ScalerT = Bilinear, **kwargs: Any
+    ) -> vs.VideoNode:
         """
         Load a default Kirsch line mask in the class instance. Additionnaly, it is returned.
 
@@ -309,8 +330,9 @@ class Rescale(RescaleBase):
         :param scaler:  Scaled used for matching the source clip format, defaults to Bilinear
         :return:        Generated mask.
         """
-        line_mask = KirschTCanny.edgemask(clip if clip else self.clipy, **kwargs).std.Maximum().std.Minimum()
-        line_mask = Scaler.ensure_obj(scaler).scale(line_mask, self.clipy.width, self.clipy.height, format=self.clipy.format)
+        line_mask = Scaler.ensure_obj(scaler).scale(
+            line_mask, self.clipy.width, self.clipy.height, format=self.clipy.format
+        )
 
         self.line_mask = line_mask
 
@@ -336,6 +358,8 @@ class Rescale(RescaleBase):
 
         src, rescale = get_y(src), get_y(rescale)
 
-        self.credit_mask = based_diff_mask(src, rescale, thr=thr, expand=expand, func=self.default_credit_mask, **kwargs)
+        self.credit_mask = based_diff_mask(
+            src, rescale, thr=thr, expand=expand, func=self.default_credit_mask, **kwargs
+        )
 
         return self.credit_mask
