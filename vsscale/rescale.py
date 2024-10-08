@@ -326,10 +326,11 @@ class Rescale(RescaleBase):
         """
         Load a default Kirsch line mask in the class instance. Additionnaly, it is returned.
 
-        :param clip:    Reference clip, defaults to luma source clip if None.
+        :param clip:    Reference clip, defaults to doubled clip if None.
         :param scaler:  Scaled used for matching the source clip format, defaults to Bilinear
         :return:        Generated mask.
         """
+        line_mask = KirschTCanny.edgemask(clip if clip else self.doubled, **kwargs).std.Maximum().std.Minimum()
         line_mask = Scaler.ensure_obj(scaler).scale(
             line_mask, self.clipy.width, self.clipy.height, format=self.clipy.format
         )
