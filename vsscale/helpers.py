@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from copy import copy
 from dataclasses import dataclass, field
 from functools import partial
 from math import ceil, floor
 from types import NoneType
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Protocol, Self, TypeAlias, cast, overload
+from typing import Any, Callable, NamedTuple, Protocol, Self, TypeAlias, cast, overload
 
 from vsaa import Nnedi3
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
@@ -225,54 +224,27 @@ RightCrop: TypeAlias = int
 TopCrop: TypeAlias = int
 BottomCrop: TypeAlias = int
 
-if TYPE_CHECKING:
-    @dataclass(frozen=True)
-    class Crop(tuple[int, int, int, int]):
-        ...
 
-        def to_rel(self, base_clip: vs.VideoNode) -> CropRel:
-            ...
-
-    @dataclass(frozen=True)
-    class CropRel(Crop):
-        left: int = 0
-        right: int = 0
-        top: int = 0
-        bottom: int = 0
+class CropRel(NamedTuple):
+    left: int = 0
+    right: int = 0
+    top: int = 0
+    bottom: int = 0
 
 
-    @dataclass(frozen=True)
-    class CropAbs(Crop):
-        width: int
-        height: int
-        left: int = 0
-        top: int = 0
+class CropAbs(NamedTuple):
+    width: int
+    height: int
+    left: int = 0
+    top: int = 0
 
-else:
-    class CropRel(NamedTuple):
-        left: int = 0
-        right: int = 0
-        top: int = 0
-        bottom: int = 0
-
-        def to_rel(self, base_clip: vs.VideoNode) -> CropRel:
-            return copy(self)
-
-
-    class CropAbs(NamedTuple):
-        width: int
-        height: int
-        left: int = 0
-        top: int = 0
-        
-        def to_rel(self, base_clip: vs.VideoNode) -> CropRel:
-            return CropRel(
-                self.left,
-                base_clip.width - self.width - self.left,
-                self.top,
-                base_clip.height - self.height - self.top
-            )
-
+    def to_rel(self, base_clip: vs.VideoNode) -> CropRel:
+        return CropRel(
+            self.left,
+            base_clip.width - self.width - self.left,
+            self.top,
+            base_clip.height - self.height - self.top
+        )
 
 
 @dataclass
@@ -345,7 +317,7 @@ class ScalingArgs:
         /,
         base_height: int | None = ..., base_width: int | None = ...,
         src_top: float = ..., src_left: float = ...,
-        crop: Crop | tuple[LeftCrop, RightCrop, TopCrop, BottomCrop] = ...,
+        crop: tuple[LeftCrop, RightCrop, TopCrop, BottomCrop] | CropRel | CropAbs = ...,
         mode: str = 'hw'
     ) -> Self:
         ...
@@ -357,10 +329,18 @@ class ScalingArgs:
         height: int | float, width: int | float | None = None,
         base_height: int | None = None, base_width: int | None = None,
         src_top: float = 0, src_left: float = 0,
-        crop: Crop | tuple[LeftCrop, RightCrop, TopCrop, BottomCrop] | None = None,
+        crop: tuple[LeftCrop, RightCrop, TopCrop, BottomCrop] | CropRel | CropAbs | None = None,
         mode: str = 'hw'
     ) -> Self:
-        crop = CropRel(*crop).to_rel(base_clip) if crop else CropRel()
+        if crop:
+            if isinstance(crop, CropAbs):
+                crop = crop.to_rel(base_clip)
+            elif isinstance(crop, CropRel):
+                pass
+            else:
+                crop = CropRel(*crop)
+        else:
+            crop = CropRel()
 
         ratio = height / base_clip.height
 
