@@ -117,9 +117,6 @@ class ClampScaler(GenericScaler):
     reference: ScalerT | vs.VideoNode = Nnedi3
     """Reference Scaler used to clamp ref_scaler"""
 
-    range_out: ColorRange | None = None
-    """Range out for clamping the output. If None it will be fetched from the VideoNode."""
-
     def __post_init__(self) -> None:
         super().__post_init__()
 
@@ -160,8 +157,6 @@ class ClampScaler(GenericScaler):
 
         check_ref_clip(ref, smooth)
 
-        range_out = ColorRange.from_video(clip, False) if self.range_out is None else self.range_out
-
         merge_weight = self.strength / 100
 
         if self.limit is True:
@@ -171,18 +166,11 @@ class ClampScaler(GenericScaler):
                 'up@ z O@ + > z O@ + up@ ? a U@ - < a U@ - up@ z O@ + > z O@ + up@ ? ?'
             ]
 
-            if range_out is ColorRange.LIMITED:
-                expression.append(f'{scale_value(16, 8, clip, ColorRange.FULL)} {{clamp_max}} clamp')
-
             merged = norm_expr(
                 [ref, smooth, smooth.std.Maximum(), smooth.std.Minimum()],
                 expression, merge_weight=merge_weight, ref_weight=1.0 - merge_weight,
                 undershoot=scale_value(self.undershoot, 32, clip, ColorRange.FULL),
-                overshoot=scale_value(self.overshoot, 32, clip, ColorRange.FULL),
-                clamp_max=[
-                    scale_value(235, 8, clip, ColorRange.FULL),
-                    scale_value(240, 8, clip, ColorRange.FULL)
-                ]
+                overshoot=scale_value(self.overshoot, 32, clip, ColorRange.FULL)
             )
         else:
             merged = smooth.std.Merge(ref, merge_weight)
