@@ -149,7 +149,80 @@ class RescaleBase:
 
 class Rescale(RescaleBase):
     """
-    _docstring_
+    Rescale wrapper
+
+    Examples usage:
+    Basic 720p rescale:
+    ```py
+    from vsscale import Rescale
+    from vskernels import Bilinear
+
+    rs = Rescale(clip, 720, Bilinear)
+    ```
+
+    Adding aa and dehalo on doubled clip:
+    ```py
+    from vsaa import based_aa
+    from vsdehalo import fine_dehalo
+
+    aa = based_aa(rs.doubled, supersampler=False)
+    dehalo = fine_dehalo(aa, ...)
+
+    rs.doubled = dehalo
+    ```
+
+    Loading line_mask and credit_mask:
+    ```py
+    from vsmasktools import diff_creditless_oped
+    from vsexprtools import ExprOp
+
+    rs.default_line_mask()
+
+    oped_credit_mask = diff_creditless_oped(...)
+    credit_mask = rs.default_credit_mask(thr=0.209, ranges=(200, 300), postfilter=4)
+    rs.credit_mask = ExprOp.ADD.combine(oped_credit_mask, credit_mask)
+    ```
+
+    Fractionnal rescale:
+    ```py
+    from vsscale import Rescale
+    from vskernels import Bilinear
+
+    # Forcing the height to a float will ensure a fractionnal descale
+    rs = Rescale(clip, 800.0, Bilinear)
+    >>> rs.descale_args
+    ScalingArgs(
+        width=1424, height=800, src_width=1422.2222222222222, src_height=800.0,
+        src_top=0.0, src_left=0.8888888888889142, mode='hw'
+    )
+
+    # while doing this will not
+    rs = Rescale(clip, 800, Bilinear)
+    >>> rs.descale_args
+    ScalingArgs(width=1422, height=800, src_width=1422, src_height=800, src_top=0, src_left=0, mode='hw')
+    ```
+
+    Cropping is also supported:
+    ```py
+    from vsscale import Rescale
+    from vskernels import Bilinear
+
+    # Descaling while cropping the letterboxes at the top and bottom
+    rs = Rescale(clip, 874, Bilinear, crop=(0, 0, 202, 202))
+    >>> rs.descale_args
+    ScalingArgs(
+        width=1554, height=548, src_width=1554.0, src_height=547.0592592592592,
+        src_top=0.4703703703703752, src_left=0.0, mode='hw'
+    )
+
+    # Same thing but ensuring the width is fractionnal descaled
+    rs = Rescale(clip, 874.0, Bilinear, crop=(0, 0, 202, 202))
+    >>> rs.descale_args
+    ScalingArgs(
+        width=1554, height=548, src_width=1553.7777777777778, src_height=547.0592592592592,
+        src_top=0.4703703703703752, src_left=0.11111111111108585, mode='hw'
+    )
+    ```
     """
 
     def __init__(
