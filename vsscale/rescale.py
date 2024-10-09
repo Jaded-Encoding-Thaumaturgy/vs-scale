@@ -356,7 +356,7 @@ class Rescale(RescaleBase):
 
     @line_mask.setter
     def line_mask(self, mask: vs.VideoNode | None) -> None:
-        self._line_mask = depth(mask, self.clipy, dither_type=DitherType.NONE) if mask else mask
+        self._line_mask = depth(mask, self.clipy, dither_type=DitherType.NONE).std.Limiter() if mask else mask
 
     @line_mask.deleter
     def line_mask(self) -> None:
@@ -371,7 +371,7 @@ class Rescale(RescaleBase):
 
     @credit_mask.setter
     def credit_mask(self, mask: vs.VideoNode | None) -> None:
-        self._credit_mask = depth(mask, self.clipy, dither_type=DitherType.NONE) if mask else mask
+        self._credit_mask = depth(mask, self.clipy, dither_type=DitherType.NONE).std.Limiter() if mask else mask
 
     @credit_mask.deleter
     def credit_mask(self) -> None:
