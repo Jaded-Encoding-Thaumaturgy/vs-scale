@@ -9,13 +9,12 @@ from vskernels.types import LeftShift, TopShift
 from vsmasktools import KirschTCanny, based_diff_mask
 from vsmasktools.utils import _get_region_expr
 from vstools import (
-    ColorRange, DitherType, FieldBased, FieldBasedT, check_variable, core, depth, get_peak_value,
-    get_y, join, split, vs
+    ColorRange, DitherType, FieldBased, FieldBasedT, FrameRangeN, FrameRangesN, check_variable,
+    core, depth, get_peak_value, get_y, join, replace_ranges, split, vs
 )
 
 from .helpers import BottomCrop, CropRel, LeftCrop, RightCrop, ScalingArgs, TopCrop
 from .onnx import ArtCNN
-
 
 RescaleT = TypeVar('RescaleT', bound="RescaleBase")
 
@@ -341,7 +340,9 @@ class Rescale(RescaleBase):
 
     def default_credit_mask(
         self, rescale: vs.VideoNode | None = None, src: vs.VideoNode | None = None,
-        thr: float = 0.216, expand: int = 4, **kwargs: Any
+        thr: float = 0.216, expand: int = 4,
+        ranges: FrameRangeN | FrameRangesN | None = None, exclusive: bool = False,
+        **kwargs: Any
     ) -> vs.VideoNode:
         """
         Load a credit mask by making a difference mask between src and rescaled clips
@@ -350,6 +351,8 @@ class Rescale(RescaleBase):
         :param src:         Source clip, defaults to source instance clip
         :param thr:         Threshold of the amplification expr, defaults to 0.216
         :param expand:      Additional expand radius applied to the mask, defaults to 4
+        :param ranges:      If specified, ranges to apply the credit clip to
+        :param exclusive:   Use exclusive ranges (Default: False)
         :return:            Generated mask
         """
         if not src:
@@ -359,8 +362,13 @@ class Rescale(RescaleBase):
 
         src, rescale = get_y(src), get_y(rescale)
 
-        self.credit_mask = based_diff_mask(
+        credit_mask = based_diff_mask(
             src, rescale, thr=thr, expand=expand, func=self.default_credit_mask, **kwargs
         )
+
+        if ranges is not None:
+            credit_mask = replace_ranges(credit_mask.std.BlankClip(keep=True), credit_mask, ranges, exclusive)
+
+        self.credit_mask = credit_mask
 
         return self.credit_mask
