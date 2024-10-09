@@ -158,6 +158,7 @@ class Rescale(RescaleBase):
     from vskernels import Bilinear
 
     rs = Rescale(clip, 720, Bilinear)
+    final = rs.upscale
     ```
 
     Adding aa and dehalo on doubled clip:
