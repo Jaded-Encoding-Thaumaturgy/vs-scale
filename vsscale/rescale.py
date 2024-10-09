@@ -329,10 +329,13 @@ class Rescale(RescaleBase):
         :param scaler:  Scaled used for matching the source clip format, defaults to Bilinear
         :return:        Generated mask.
         """
-        line_mask = KirschTCanny.edgemask(clip if clip else self.doubled, **kwargs).std.Maximum().std.Minimum()
-        line_mask = Scaler.ensure_obj(scaler).scale(
-            line_mask, self.clipy.width, self.clipy.height, format=self.clipy.format
-        )
+        scaler = Scaler.ensure_obj(scaler)
+        scale_kwargs = scaler.kwargs if clip else self.descale_args.kwargs(self.doubled) | scaler.kwargs
+
+        clip = clip if clip else self.doubled
+
+        line_mask = KirschTCanny.edgemask(clip, **kwargs).std.Maximum().std.Minimum()
+        line_mask = scaler.scale(line_mask, self.clipy.width, self.clipy.height, format=self.clipy.format, **scale_kwargs)
 
         self.line_mask = line_mask
 
