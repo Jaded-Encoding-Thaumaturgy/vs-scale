@@ -30,7 +30,7 @@ class RescaleBase:
         kernel: KernelT,
         upscaler: ScalerT = ArtCNN,
         downscaler: ScalerT = Hermite(linear=True),
-        field_based: FieldBasedT | None = None,
+        field_based: FieldBasedT | bool | None = None,
         border_handling: int | BorderHandling = BorderHandling.MIRROR
     ) -> None:
         assert check_variable(clip, self.__class__)
@@ -239,7 +239,7 @@ class Rescale(RescaleBase):
         base_width: int | None = None,
         crop: tuple[LeftCrop, RightCrop, TopCrop, BottomCrop] = CropRel(),
         shift: tuple[TopShift, LeftShift] = (0, 0),
-        field_based: FieldBasedT | None = None,
+        field_based: FieldBasedT | bool | None = None,
         border_handling: int | BorderHandling = BorderHandling.MIRROR
     ) -> None:
         """Initialize the rescaling process.
