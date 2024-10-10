@@ -5,13 +5,18 @@ from functools import partial
 from math import ceil, log2
 from typing import Any, ClassVar, Literal
 
+from stgpytools import inject_kwargs_params
 from vsexprtools import complexpr_available, expr_func, norm_expr
-from vskernels import Catrom, Hermite, LinearScaler, Mitchell, Scaler, ScalerT
+from vskernels import (
+    Bilinear, BorderHandling, Catrom, ComplexScaler, Hermite, LinearScaler, Mitchell, Point, SampleGridModel, Scaler,
+    ScalerT
+)
+from vskernels.types import Center, LeftShift, Slope, TopShift
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
-    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, VSFunction, check_ref_clip,
-    check_variable, check_variable_format, clamp, core, depth, fallback, get_nvidia_version, get_prop, inject_self,
-    padder, vs
+    Dar, DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, Sar, VSFunction,
+    check_ref_clip, check_variable, check_variable_format, clamp, core, depth, fallback, get_nvidia_version, get_prop,
+    inject_self, padder, vs
 )
 
 from .helpers import GenericScaler
@@ -20,7 +25,8 @@ __all__ = [
     'DPID',
     'SSIM',
     'DLISR',
-    'Waifu2x'
+    'Waifu2x',
+    'SharpBilinear',
 ]
 
 
@@ -516,3 +522,56 @@ class Waifu2x(BaseWaifu2x):
 
     class SwinUnetArtScan(BaseWaifu2x):
         _model = 10
+
+
+class SharpBilinear(ComplexScaler):
+    """
+    Pre-supersample using Point, then scale to the target dimensions with Bilinear.
+
+    This is used for pixel art to preserve the "sharpness", while still allowing for
+    non-integer ratio scaling without messing up the intended look of the image.
+    """
+
+    @inject_self.cached
+    @inject_kwargs_params
+    def scale(  # type: ignore[override]
+        self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+        shift: tuple[TopShift, LeftShift] = (0, 0),
+        *,
+        border_handling: BorderHandling = BorderHandling.MIRROR,
+        sample_grid_model: SampleGridModel = SampleGridModel.MATCH_EDGES,
+        sar: Sar | bool | float | None = None, dar: Dar | bool | float | None = None, keep_ar: bool | None = None,
+        linear: bool | None = None, sigmoid: bool | tuple[Slope, Center] = False,
+        **kwargs: Any
+    ) -> vs.VideoNode:
+        target_width = width or clip.width
+        target_height = height or clip.height
+
+        # Ideally, we should always scale in linear light by default.
+        kernel_kwargs = dict(linear=fallback(linear, self.kwargs.get('linear', True)))
+
+        scale_kwargs = dict(
+            sar=sar, dar=dar, keep_ar=keep_ar,
+            sigmoid=sigmoid, border_handling=border_handling,
+            sample_grid_model=sample_grid_model
+        ) | dict(linear=kernel_kwargs.get('linear', False)) | kwargs
+
+        if (clip.width, clip.height) == (target_width, target_height):
+            return clip
+
+        if target_width <= clip.width and target_height <= clip.height:
+            return Bilinear.scale(clip, target_width, target_height, shift, **scale_kwargs)
+
+        max_ratio = max(target_width / clip.width, target_height / clip.height)
+        int_ratio = 2 ** int(log2(max_ratio) + 0.5)
+
+        ss_clip = Point(**kernel_kwargs).scale(
+            clip, clip.width * int_ratio, clip.height * int_ratio, shift, **scale_kwargs
+        )
+
+        if (ss_clip.width, ss_clip.height) == (target_width, target_height):
+            return clip
+
+        return Bilinear(**kernel_kwargs).scale(ss_clip, target_width, target_height, **scale_kwargs)
+
+    kernel_radius = 1
