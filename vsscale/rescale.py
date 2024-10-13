@@ -322,11 +322,9 @@ class Rescale(RescaleBase):
     def _generate_upscale(self, clip: vs.VideoNode) -> vs.VideoNode:
         upscale = super()._generate_upscale(clip)
 
-        if self._line_mask or self.border_handling:
-            upscale = core.std.MaskedMerge(self.clipy, upscale, self.line_mask).std.CopyFrameProps(upscale)
+        merged_mask = norm_expr([self.line_mask, self.credit_mask], "x y - 0 yrange_max clamp")
 
-        if self._credit_mask:
-            upscale = core.std.MaskedMerge(upscale, self.clipy, self.credit_mask)
+        upscale = core.std.MaskedMerge(self.clipy, upscale, merged_mask).std.CopyFrameProps(upscale)
 
         if self._crop > (0, 0, 0, 0):
             pre_y = get_y(self._pre)
