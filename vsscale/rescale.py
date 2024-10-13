@@ -144,7 +144,7 @@ class RescaleBase:
         return join(
             self._generate_upscale(self.doubled),
             *self.chroma
-        )
+        ).std.CopyFrameProps(self.clipy, '_ChromaLocation')
 
 
 class Rescale(RescaleBase):
