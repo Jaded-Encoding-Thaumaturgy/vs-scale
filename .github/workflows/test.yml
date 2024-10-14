@@ -1,14 +1,6 @@
 name: Test Python code
 
-on:
-  push:
-    branches:
-      - master
-    paths:
-      - '**.py'
-  pull_request:
-    paths:
-      - '**.py'
+on: [push, pull_request]
 
 jobs:
   windows:
