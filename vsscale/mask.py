@@ -75,7 +75,7 @@ def descale_error_mask(
     error = norm_expr([y, rescaled], 'x y - abs')
 
     if bwbias > 1 and chroma:
-        chroma_abs = norm_expr(chroma, 'x range_half - abs y range_half - abs max')
+        chroma_abs = norm_expr(chroma, 'x neutral - abs y neutral - abs max')
         chroma_abs = Catrom.scale(chroma_abs, y.width, y.height)
 
         bias = norm_expr([y, chroma_abs], f'x ymax >= x ymin <= or y 0 = and {bwbias} 1 ?')
