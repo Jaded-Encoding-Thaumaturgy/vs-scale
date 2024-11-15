@@ -6,7 +6,7 @@ from math import ceil, log2
 from typing import Any, ClassVar, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
-from vskernels import Catrom, Hermite, LinearScaler, Mitchell, Scaler, ScalerT
+from vskernels import Catrom, Hermite, Mitchell, Scaler, ScalerT
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, VSFunction, check_ref_clip,
