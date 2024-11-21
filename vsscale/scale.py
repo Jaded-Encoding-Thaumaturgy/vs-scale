@@ -6,7 +6,7 @@ from math import ceil, log2
 from typing import Any, ClassVar, Literal
 
 from vsexprtools import complexpr_available, expr_func, norm_expr
-from vskernels import Catrom, Hermite, LinearScaler, Mitchell, Scaler, ScalerT
+from vskernels import Catrom, Hermite, Mitchell, Scaler, ScalerT
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
     DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, VSFunction, check_ref_clip,
@@ -72,7 +72,7 @@ class DPID(GenericScaler):
         return self.ref.kernel_radius
 
 
-class SSIM(LinearScaler):
+class SSIM(GenericScaler):
     """
     SSIM downsampler is an image downscaling technique that aims to optimize
     for the perceptual quality of the downscaled results.
@@ -105,9 +105,9 @@ class SSIM(LinearScaler):
     def __init__(
         self, scaler: ScalerT = Hermite, smooth: int | float | VSFunction | None = None, **kwargs: Any
     ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(self._linear_scale, **kwargs)
 
-        self.scaler = Hermite.from_param(scaler)
+        self.scaler = self.ensure_scaler(scaler)
 
         if smooth is None:
             smooth = (self.scaler.kernel_radius + 1.0) / 3
