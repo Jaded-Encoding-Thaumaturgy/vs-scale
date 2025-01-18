@@ -1,21 +1,10 @@
 from dataclasses import dataclass
 from typing import Any, ClassVar
-from vskernels import KernelT, Kernel
+
+from vskernels import Kernel, KernelT
 from vstools import (
-    SPath,
-    SPathLike,
-    inject_self,
-    vs,
-    core,
-    get_video_format,
-    expect_bits,
-    depth,
-    CustomValueError,
-    DependencyNotFoundError,
-    NotFoundEnumValue,
-    get_nvidia_version,
-    KwargsT,
-    get_y,
+    CustomValueError, DependencyNotFoundError, KwargsT, NotFoundEnumValue, SPath, SPathLike, core,
+    depth, expect_bits, get_nvidia_version, get_video_format, get_y, inject_self, vs
 )
 
 from .helpers import GenericScaler
@@ -27,7 +16,7 @@ __all__ = ["GenericOnnxScaler", "autoselect_backend", "ArtCNN"]
 class GenericOnnxScaler(GenericScaler):
     """Generic scaler class for an onnx model."""
 
-    model: SPathLike | None = None
+    model: SPathLike
     """Path to the model."""
     backend: Any | None = None
     """
@@ -43,7 +32,7 @@ class GenericOnnxScaler(GenericScaler):
     _static_kernel_radius = 2
 
     @inject_self
-    def scale(
+    def scale(  # type: ignore
         self,
         clip: vs.VideoNode,
         width: int,
@@ -56,7 +45,7 @@ class GenericOnnxScaler(GenericScaler):
 
         wclip, _ = expect_bits(clip, 32)
 
-        from vsmlrt import inference, calc_tilesize, init_backend
+        from vsmlrt import calc_tilesize, inference, init_backend  #type: ignore[import-untyped]
 
         if self.overlap is None:
             overlap_w = overlap_h = 8
@@ -74,7 +63,7 @@ class GenericOnnxScaler(GenericScaler):
         )
 
         if tile_w % 1 != 0 or tile_h % 1 != 0:
-            raise CustomValueError(f"Tile size must be divisible by 1 ({tile_w}, {tile_h})", self)
+            raise CustomValueError(f"Tile size must be divisible by 1 ({tile_w}, {tile_h})", self.__class__)
 
         backend = init_backend(backend=self.backend, trt_opt_shapes=(tile_w, tile_h))
 
@@ -89,8 +78,9 @@ class GenericOnnxScaler(GenericScaler):
 
 
 def autoselect_backend(trt_args: KwargsT = {}, **kwargs: Any) -> Any:
-    from vsmlrt import Backend
     import os
+
+    from vsmlrt import Backend
 
     fp16 = kwargs.pop("fp16", True)
 
@@ -139,7 +129,7 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
     _static_kernel_radius = 2
 
     @inject_self
-    def scale(
+    def scale(  # type: ignore
         self,
         clip: vs.VideoNode,
         width: int | None = None,
@@ -148,7 +138,8 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
         **kwargs: Any,
     ) -> vs.VideoNode:
         try:
-            from vsmlrt import ArtCNN as mlrt_ArtCNN, ArtCNNModel
+            from vsmlrt import ArtCNN as mlrt_ArtCNN
+            from vsmlrt import ArtCNNModel
         except ImportError:
             raise DependencyNotFoundError("vsmlrt", self._func)
 

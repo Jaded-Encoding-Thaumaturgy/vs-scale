@@ -82,7 +82,7 @@ class PlaceboShaderBase(PlaceboShaderMeta):
             'shader': str(
                 self.shader_file()
                 if isinstance(self.shader_file, ShaderFile) else
-                ShaderFile.CUSTOM(self.shader_file)
+                ShaderFile.CUSTOM(self.shader_file)  # type: ignore
             ),
             'chroma_loc': self.chroma_loc, 'matrix': self.matrix,
             'trc': self.trc, 'linearize': self.linearize,
@@ -100,7 +100,7 @@ class PlaceboShaderBase(PlaceboShaderMeta):
 
         if not Path(kwargs['shader']).exists():
             try:
-                kwargs['shader'] = str(ShaderFile.CUSTOM(kwargs['shader']))
+                kwargs['shader'] = str(ShaderFile.CUSTOM(kwargs['shader']))  # type: ignore
             except FileWasNotFoundError:
                 ...
 
@@ -185,4 +185,4 @@ class FSRCNNXShader(PlaceboShaderBase):
         shader_file = ShaderFile.FSRCNNX_x56
 
 
-FSRCNNXShaderT = type[PlaceboShaderBase] | PlaceboShaderBase  # type: ignore
+FSRCNNXShaderT = type[PlaceboShaderBase] | PlaceboShaderBase

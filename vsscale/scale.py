@@ -9,9 +9,9 @@ from vsexprtools import complexpr_available, expr_func, norm_expr
 from vskernels import Catrom, Hermite, LinearScaler, Mitchell, Scaler, ScalerT
 from vsrgtools import box_blur, gauss_blur
 from vstools import (
-    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableResClip, VSFunction, check_ref_clip,
-    check_variable, check_variable_format, clamp, core, depth, fallback, get_nvidia_version, get_prop, inject_self,
-    padder, vs
+    DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableClip,
+    ProcessVariableResClip, VSFunction, check_ref_clip, check_variable, check_variable_format,
+    clamp, core, depth, fallback, get_nvidia_version, get_prop, inject_self, padder, vs
 )
 
 from .helpers import GenericScaler
@@ -41,6 +41,12 @@ class DPID(GenericScaler):
     planes: PlanesT = None
     """Sets which planes will be processed. Any unprocessed planes will be simply copied from ref."""
 
+    def __post_init__(self) -> None:
+        if isinstance(self.ref, vs.VideoNode):
+            self._ref_scaler = self.ensure_scaler(self._scaler)
+        else:
+            self._ref_scaler = self.ensure_scaler(self.ref)
+
     @inject_self
     def scale(  # type: ignore[override]
         self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
@@ -51,25 +57,22 @@ class DPID(GenericScaler):
         ref = clip
 
         if isinstance(self.ref, vs.VideoNode):
-            check_ref_clip(clip, self.ref)  # type: ignore
-            ref = self.ref  # type: ignore
-            scaler = self.ensure_scaler(self.scaler)
-        else:
-            scaler = self.ensure_scaler(self.ref)  # type: ignore
+            check_ref_clip(clip, self.ref)
+            ref = self.ref
 
         if (ref.width, ref.height) != (width, height):
-            ref = scaler.scale(ref, width, height)
+            ref = self._ref_scaler.scale(ref, width, height)
 
         kwargs |= {
             'lambda_': self.sigma, 'planes': self.planes,
             'src_left': shift[1], 'src_top': shift[0]
         } | kwargs | {'read_chromaloc': True}
 
-        return core.dpid.DpidRaw(clip, ref, **kwargs)  # type: ignore
+        return core.dpid.DpidRaw(clip, ref, **kwargs)
 
     @inject_self.property
-    def kernel_radius(self) -> int:
-        return self.ref.kernel_radius
+    def kernel_radius(self) -> int:  # type: ignore
+        return self._ref_scaler.kernel_radius
 
 
 class SSIM(LinearScaler):
@@ -86,25 +89,19 @@ class SSIM(LinearScaler):
     resulting in an accurate and spatio-temporally consistent representation of the high resolution input.
     """
 
-    scaler: ScalerT
-    """
-    Scaler to be used for downscaling.
-    """
-
-    smooth: int | float | VSFunction | None
-    """
-    Image smoothening method.
-    If you pass an int, it specifies the "radius" of the internally-used boxfilter,
-    i.e. the window has a size of (2*smooth+1)x(2*smooth+1).
-    If you pass a float, it specifies the "sigma" of gauss_blur,
-    i.e. the standard deviation of gaussian blur.
-    If you pass a function, it acts as a general smoother.
-    Default uses a gaussian blur based on the scaler's kernel radius.
-    """
-
     def __init__(
         self, scaler: ScalerT = Hermite, smooth: int | float | VSFunction | None = None, **kwargs: Any
     ) -> None:
+        """
+        :param scaler:      Scaler to be used for downscaling, defaults to Hermite.
+        :param smooth:      Image smoothening method.
+                            If you pass an int, it specifies the "radius" of the internally-used boxfilter,
+                            i.e. the window has a size of (2*smooth+1)x(2*smooth+1).
+                            If you pass a float, it specifies the "sigma" of gauss_blur,
+                            i.e. the standard deviation of gaussian blur.
+                            If you pass a function, it acts as a general smoother.
+                            Default uses a gaussian blur based on the scaler's kernel radius.
+        """
         super().__init__(**kwargs)
 
         self.scaler = Hermite.from_param(scaler)
@@ -144,7 +141,7 @@ class SSIM(LinearScaler):
         return expr_func([self.filter_func(m), self.filter_func(r), l1, self.filter_func(t)], 'x y z * + a -')
 
     @inject_self.property
-    def kernel_radius(self) -> int:
+    def kernel_radius(self) -> int:  # type: ignore
         return self.scaler.kernel_radius
 
 
@@ -195,14 +192,16 @@ class Waifu2xPadHelper(ProcessVariableResClip):
         return padder.MIRROR(super().normalize(clip, cast_to), *padding).std.SetFrameProp('_PadValues', padding)
 
 
-class Waifu2xCropHelper(ProcessVariableResClip[tuple[int, int, int, int, int, int]]):
+class Waifu2xCropHelper(ProcessVariableClip[tuple[int, int, int, int, int, int]]):
     def get_key(self, frame: vs.VideoFrame) -> tuple[int, int, int, int, int, int]:
         return (frame.width, frame.height, *get_prop(frame, '_PadValues', list))
 
     def normalize(self, clip: vs.VideoNode, cast_to: tuple[int, int, int, int, int, int]) -> vs.VideoNode:
         width, height, *padding = cast_to
 
-        return super().normalize(clip, (width, height)).std.Crop(*(p * 2 for p in padding))
+        return ProcessVariableResClip.normalize(
+            self, clip, (width, height)).std.Crop(*(p * 2 for p in padding)  # type: ignore[arg-type]
+        )
 
 
 class Waifu2xScaleHelper(ProcessVariableResClip):
@@ -336,7 +335,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
 
         if self.dynamic_shape is None:
             try:
-                from vspreview import is_preview
+                from vspreview.api import is_preview
 
                 self.dynamic_shape = is_preview()
             except Exception:
@@ -476,7 +475,7 @@ class BaseWaifu2x(_BaseWaifu2x, GenericScaler):
                 KwargsT(
                     **_static_args, model=model,
                     preprocess=False, **kwargs
-                ), self.max_instances, self._backend, bkwargs
+                ), self.max_instances, self._backend, bkwargs  # type: ignore[arg-type]
             ).eval_clip()
 
         return self._finish_scale(wclip, clip, width, height, shift, matrix, is_upscale)
