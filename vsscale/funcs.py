@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Callable, Concatenate, Literal, cast
+from typing import Any, Callable, Concatenate, Literal, TypeGuard, cast
 
 from vsaa import Nnedi3
 from vsexprtools import ExprOp, combine, norm_expr
@@ -31,7 +31,12 @@ class MergeScalers(GenericScaler):
         elif slen > len(EXPR_VARS):
             raise CustomIndexError('Too many scalers passed!', self.__class__, slen)
 
-        if any(isinstance(s, tuple) for s in scalers):
+        def _not_all_tuple_scalers(
+            scalers: tuple[ScalerT | tuple[ScalerT, float | None], ...]
+        ) -> TypeGuard[tuple[ScalerT, ...]]:
+            return all(not isinstance(s, tuple) for s in scalers)
+
+        if not _not_all_tuple_scalers(scalers):
             norm_scalers = [
                 scaler if isinstance(scaler, tuple) else (scaler, None) for scaler in scalers
             ]
@@ -64,7 +69,7 @@ class MergeScalers(GenericScaler):
         else:
             weight = 1.0 / len(scalers)
 
-            norm_scalers = [(scaler, weight) for scaler in scalers]  # type: ignore
+            norm_scalers = [(scaler, weight) for scaler in scalers]
 
         self.scalers = [
             (self.ensure_scaler(scaler), float(weight if weight else 0))
@@ -84,8 +89,8 @@ class MergeScalers(GenericScaler):
             ExprOp.ADD, zip(weights, ExprOp.MUL), expr_suffix=[sum(weights), ExprOp.DIV]
         )
 
-    @property
-    def kernel_radius(self) -> int:
+    @inject_self.cached.property
+    def kernel_radius(self) -> int:  # type: ignore[override]
         return max(scaler.kernel_radius for scaler, _ in self.scalers)
 
 
@@ -145,13 +150,13 @@ class ClampScaler(GenericScaler):
         ref = self._ref_scaler.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
-            smooth = self.reference  # type: ignore
+            smooth = self.reference
 
             if shift != (0, 0):
                 smooth = self._kernel.shift(smooth, shift)  # type: ignore
         else:
             assert self._reference
-            smooth = self._reference.scale(clip, width, height, shift)  # type: ignore
+            smooth = self._reference.scale(clip, width, height, shift)
 
         assert smooth
 
@@ -186,8 +191,8 @@ class ClampScaler(GenericScaler):
 
         return merged
 
-    @property
-    def kernel_radius(self) -> int:
+    @inject_self.cached.property
+    def kernel_radius(self) -> int:  # type: ignore[override]
         if self._reference:
             return max(self._reference.kernel_radius, self._ref_scaler.kernel_radius)
         return self._ref_scaler.kernel_radius
@@ -234,7 +239,7 @@ class UnsharpLimitScaler(GenericScaler):
         fsrcnnx = self.ref_scaler.scale(clip, width, height, shift, **kwargs)
 
         if isinstance(self.reference, vs.VideoNode):
-            smooth = self.reference  # type: ignore
+            smooth = self.reference
 
             if shift != (0, 0):
                 smooth = self._kernel.shift(smooth, shift)  # type: ignore
@@ -255,8 +260,8 @@ class UnsharpLimitScaler(GenericScaler):
 
         return combine([smooth, fsrcnnx, smooth_sharp], ExprOp.MIN)
 
-    @property
-    def kernel_radius(self) -> int:
+    @inject_self.cached.property
+    def kernel_radius(self) -> int:  # type: ignore[override]
         if self._reference:
             return max(self._reference.kernel_radius, self.ref_scaler.kernel_radius)
         return self.ref_scaler.kernel_radius

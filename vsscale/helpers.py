@@ -4,13 +4,12 @@ from dataclasses import dataclass, field
 from functools import partial
 from math import ceil, floor
 from types import NoneType
-from typing import Any, Callable, NamedTuple, Protocol, Self, TypeAlias, cast, overload
+from typing import Any, Callable, NamedTuple, Protocol, Self, TypeAlias, overload
 
 from vsaa import Nnedi3
 from vskernels import Catrom, Kernel, KernelT, Scaler, ScalerT
-from vstools import F_VD, KwargsT, MatrixT, fallback, get_w, mod2, plane, vs
+from vstools import KwargsT, MatrixT, Resolution, fallback, get_w, mod2, plane, vs
 
-from .types import Resolution
 
 __all__ = [
     'GenericScaler',
@@ -70,7 +69,7 @@ class GenericScaler(Scaler):
         )
 
     def __init__(
-        self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | F_VD, **kwargs: Any  # type: ignore
+        self, func: _GeneriScaleNoShift | _GeneriScaleWithShift | Callable[..., vs.VideoNode], **kwargs: Any
     ) -> None:
         self.func = func
         self.kwargs = kwargs
@@ -116,7 +115,7 @@ class GenericScaler(Scaler):
             clip = self._scaler.scale(clip, width, height)
 
         if shift != (0, 0):
-            clip = self._shifter.shift(clip, shift)
+            clip = self._shifter.shift(clip, shift)  # type: ignore
 
         assert clip.format
 
@@ -134,7 +133,7 @@ class GenericScaler(Scaler):
         scaler_obj = Scaler.ensure_obj(scaler, self.__class__)
 
         if is_dataclass(scaler_obj):
-            from inspect import Signature
+            from inspect import Signature  #type: ignore[unreachable]
 
             kwargs = dict[str, ScalerT]()
 
@@ -152,7 +151,7 @@ class GenericScaler(Scaler):
             if kwargs:
                 scaler_obj = replace(scaler_obj, **kwargs)
 
-        return cast(Scaler, scaler_obj)
+        return scaler_obj
 
 
 def scale_var_clip(
@@ -187,7 +186,7 @@ def scale_var_clip(
             else:
                 norm_width = width(res) if callable(width) else width
 
-            part_scaler = partial(
+            part_scaler = partial(  #type: ignore[misc]
                 norm_scaler.scale, width=norm_width, height=norm_height, shift=norm_shift
             )
 
