@@ -94,7 +94,7 @@ def descale_error_mask(
     if exp2:
         error = Morpho.expand(error, exp2, mode=XxpandMode.ELLIPSE)
 
-    thrs = [thr] if isinstance(thr, float) else thr
+    thrs = [thr] if isinstance(thr, (float, int)) else thr
 
     error = Morpho.binarize(error, thrs[0])
 
