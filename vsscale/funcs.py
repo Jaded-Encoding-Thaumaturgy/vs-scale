@@ -89,7 +89,7 @@ class MergeScalers(GenericScaler):
             ExprOp.ADD, zip(weights, ExprOp.MUL), expr_suffix=[sum(weights), ExprOp.DIV]
         )
 
-    @inject_self.cached.property
+    @property
     def kernel_radius(self) -> int:  # type: ignore[override]
         return max(scaler.kernel_radius for scaler, _ in self.scalers)
 
@@ -191,7 +191,7 @@ class ClampScaler(GenericScaler):
 
         return merged
 
-    @inject_self.cached.property
+    @property
     def kernel_radius(self) -> int:  # type: ignore[override]
         if self._reference:
             return max(self._reference.kernel_radius, self._ref_scaler.kernel_radius)
@@ -260,7 +260,7 @@ class UnsharpLimitScaler(GenericScaler):
 
         return combine([smooth, fsrcnnx, smooth_sharp], ExprOp.MIN)
 
-    @inject_self.cached.property
+    @property
     def kernel_radius(self) -> int:  # type: ignore[override]
         if self._reference:
             return max(self._reference.kernel_radius, self.ref_scaler.kernel_radius)
