@@ -4,7 +4,7 @@ from typing import Any, ClassVar
 from vskernels import Kernel, KernelT
 from vstools import (
     CustomValueError, DependencyNotFoundError, KwargsT, NotFoundEnumValue, SPath, SPathLike, core,
-    depth, expect_bits, get_nvidia_version, get_video_format, get_y, inject_self, vs
+    depth, expect_bits, get_nvidia_version, get_video_format, get_y, inject_self, limiter, vs
 )
 
 from .helpers import GenericScaler
@@ -68,7 +68,7 @@ class GenericOnnxScaler(GenericScaler):
         backend = init_backend(backend=self.backend, trt_opt_shapes=(tile_w, tile_h))
 
         scaled = inference(
-            wclip.std.Limiter(),
+            limiter(wclip, func=self.__class__),
             network_path=str(SPath(self.model).resolve()),
             backend=backend,
             overlap=(overlap_w, overlap_h),
@@ -179,7 +179,7 @@ class BaseArtCNN(_BaseArtCNN, GenericScaler):
             self.backend = autoselect_backend()
 
         scaled = mlrt_ArtCNN(
-            depth(wclip, 32).std.Limiter(),
+            limiter(depth(wclip, 32), func=self._func),
             self.tiles,
             self.tilesize,
             self.overlap,
