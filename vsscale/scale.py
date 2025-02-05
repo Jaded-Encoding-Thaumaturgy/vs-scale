@@ -11,7 +11,7 @@ from vsrgtools import box_blur, gauss_blur
 from vstools import (
     DependencyNotFoundError, KwargsT, Matrix, MatrixT, PlanesT, ProcessVariableClip,
     ProcessVariableResClip, VSFunction, check_ref_clip, check_variable, check_variable_format,
-    clamp, core, depth, fallback, get_nvidia_version, get_prop, inject_self, padder, vs
+    clamp, core, depth, fallback, get_nvidia_version, get_prop, inject_self, limiter, padder, vs
 )
 
 from .helpers import GenericScaler
@@ -174,7 +174,7 @@ class DLISR(GenericScaler):
                 matrix = Matrix.from_param_or_video(matrix or self.matrix, clip, False, self.__class__)
 
             output = self._kernel.resample(output, vs.RGBS, Matrix.RGB, matrix)
-            output = output.std.Limiter()
+            output = limiter(output, func=self.__class__)
 
             max_scale = max(ceil(width / clip.width), ceil(height / clip.height))
 
@@ -249,7 +249,7 @@ class Waifu2xResizeHelper(ProcessVariableResClip):
         mult = max(int(log2(ceil(size))) for size in (self.width / cast_to[0], self.height / cast_to[1]))
 
         try:
-            wclip = wclip.std.Limiter(planes=self.planes)
+            wclip = limiter(wclip, func=self.__class__)
         except vs.Error:
             wclip = norm_expr(wclip, 'x 0 1 clamp', planes=self.planes)
 
