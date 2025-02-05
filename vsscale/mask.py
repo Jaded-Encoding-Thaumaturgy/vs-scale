@@ -4,13 +4,14 @@ from vsexprtools import ExprOp, average_merge, norm_expr
 from vskernels import Catrom
 from vsmasktools import Morpho, XxpandMode
 from vsrgtools import box_blur, gauss_blur
-from vstools import core, get_y, iterate, shift_clip_multi, split, vs
+from vstools import core, get_y, iterate, shift_clip_multi, split, vs, limiter
 
 __all__ = [
     'descale_detail_mask', 'descale_error_mask'
 ]
 
 
+@limiter
 def descale_detail_mask(
     clip: vs.VideoNode, rescaled: vs.VideoNode, thr: float = 0.05,
     inflate: int = 2, xxpand: tuple[int, int] = (4, 0)
@@ -46,9 +47,10 @@ def descale_detail_mask(
     if xxpand[1]:
         mask = iterate(mask, core.std.Maximum if xxpand[1] > 0 else core.std.Minimum, xxpand[1])
 
-    return mask.std.Limiter()
+    return mask
 
 
+@limiter
 def descale_error_mask(
     clip: vs.VideoNode, rescaled: vs.VideoNode,
     thr: float | list[float] = 0.038,
@@ -115,4 +117,4 @@ def descale_error_mask(
     else:
         error = gauss_blur(error, blur)
 
-    return error.std.Limiter()
+    return error

@@ -10,7 +10,7 @@ from vsmasktools import KirschTCanny, based_diff_mask
 from vsmasktools.utils import _get_region_expr
 from vstools import (
     ColorRange, DitherType, FieldBased, FieldBasedT, FrameRangeN, FrameRangesN, check_variable,
-    core, depth, get_peak_value, get_y, join, replace_ranges, split, vs
+    core, depth, get_peak_value, get_y, join, limiter, replace_ranges, split, vs
 )
 
 from .helpers import BottomCrop, CropRel, LeftCrop, RightCrop, ScalingArgs, TopCrop
@@ -361,7 +361,12 @@ class Rescale(RescaleBase):
 
     @line_mask.setter
     def line_mask(self, mask: vs.VideoNode | None) -> None:
-        self._line_mask = depth(mask, self.clipy, dither_type=DitherType.NONE, range_in=ColorRange.FULL, range_out=ColorRange.FULL).std.Limiter() if mask else mask
+        self._line_mask = (
+            limiter(depth(
+                mask, self.clipy, dither_type=DitherType.NONE, range_in=ColorRange.FULL, range_out=ColorRange.FULL
+            ))
+            if mask else mask
+        )
 
     @line_mask.deleter
     def line_mask(self) -> None:
@@ -376,7 +381,12 @@ class Rescale(RescaleBase):
 
     @credit_mask.setter
     def credit_mask(self, mask: vs.VideoNode | None) -> None:
-        self._credit_mask = depth(mask, self.clipy, dither_type=DitherType.NONE, range_in=ColorRange.FULL, range_out=ColorRange.FULL).std.Limiter() if mask else mask
+        self._credit_mask = (
+            limiter(depth(
+                mask, self.clipy, dither_type=DitherType.NONE, range_in=ColorRange.FULL, range_out=ColorRange.FULL
+            ))
+            if mask else mask
+        )
 
     @credit_mask.deleter
     def credit_mask(self) -> None:
@@ -391,7 +401,10 @@ class Rescale(RescaleBase):
 
     @ignore_mask.setter
     def ignore_mask(self, mask: vs.VideoNode | None) -> None:
-        self._ignore_mask = depth(mask, 8, dither_type=DitherType.NONE, range_in=ColorRange.FULL, range_out=ColorRange.FULL) if mask else mask
+        self._ignore_mask = (
+            depth(mask, 8, dither_type=DitherType.NONE, range_in=ColorRange.FULL, range_out=ColorRange.FULL)
+            if mask else mask
+        )
 
     @ignore_mask.deleter
     def ignore_mask(self) -> None:
